@@ -15,15 +15,15 @@ import (
 
 func TestUnmarshal(t *testing.T) {
 	opts := &UnmarshalOptions{}
-	testCases := []struct{
+	testCases := []struct {
 		encoded []byte
 		decoded any
 	}{
 		// Positive fixint:
-		{ encoded: []byte{0x00}, decoded: int(0) },
-		{ encoded: []byte{0x01}, decoded: int(1) },
-		{ encoded: []byte{0x02}, decoded: int(2) },
-		{ encoded: []byte{0x7f}, decoded: int(127) },
+		{encoded: []byte{0x00}, decoded: int(0)},
+		{encoded: []byte{0x01}, decoded: int(1)},
+		{encoded: []byte{0x02}, decoded: int(2)},
+		{encoded: []byte{0x7f}, decoded: int(127)},
 	}
 	for _, testCase := range testCases {
 		buf := bytes.NewBuffer(testCase.encoded)
