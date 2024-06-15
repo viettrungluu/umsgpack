@@ -14,7 +14,7 @@ import (
 )
 
 func TestUnmarshal(t *testing.T) {
-	opts := UnmarshalOptions{}
+	opts := &UnmarshalOptions{}
 	testCases := []struct{
 		encoded []byte
 		decoded any

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"time"
 )
 
 // TODO: assert strconv.IntSize >= 64 (in init, maybe).
@@ -20,16 +21,17 @@ var DuplicateKeyError = errors.New("Duplicate key")
 // This is only returned if the EnableUnsupportedExtensionTypeError option is set.
 var UnsupportedExtensionTypeError = errors.New("Unsupported extension type")
 
-// InvalidFormat is the error returned if an invalid format (0xc1) is encountered.
-var InvalidFormat error = errors.New("Invalid format")
+// InvalidFormatError is the error returned if an invalid format (0xc1) is encountered.
+var InvalidFormatError = errors.New("Invalid format")
 
 // TODO
 // notes: always int, uint
-func Unmarshal(opts UnmarshalOptions, r io.Reader) (any, error) {
+func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
 	u := &unmarshaller{opts: opts, r: r}
 	return u.unmarshalObject()
 }
 
+// UnmarshalOptions specifies options for Unmarshal.
 type UnmarshalOptions struct {
 	// If DisableDuplicateKeyError is set, then DuplicateKeyErrors will not be returned.
 	//
@@ -41,8 +43,13 @@ type UnmarshalOptions struct {
 	// be returned if an unsupported extension type is encountered.
 	EnableUnsupportedExtensionTypeError bool
 
-	// TODO
+	// ApplicationExtensions is a map from any application-specific extension types (0-127) to
+	// the corresponding UnmarshalExtensionTypeFn.
+	ApplicationExtensions map[int]UnmarshalExtensionTypeFn
 }
+
+// An UnmarshalExtensionTypeFn unmarshals the given data for a (fixed, known) extension type.
+type UnmarshalExtensionTypeFn func(data []byte) (any, error)
 
 // An *UnresolvedExtensionType represents data from an unresolved/unsupported extension type.
 type UnresolvedExtensionType struct {
@@ -51,7 +58,7 @@ type UnresolvedExtensionType struct {
 }
 
 type unmarshaller struct {
-	opts UnmarshalOptions
+	opts *UnmarshalOptions
 	r    io.Reader
 }
 
@@ -81,7 +88,7 @@ func (u *unmarshaller) unmarshalObject() (any, error) {
 	case 0xc0: // nil: 11000000: 0xc0
 		return nil, nil
 	case 0xc1: // (never used): 11000001: 0xc1
-		return nil, InvalidFormat
+		return nil, InvalidFormatError
 	case 0xc2: // false: 11000010: 0xc2
 		return false, nil
 	case 0xc3: // true: 11000011: 0xc3
@@ -344,12 +351,25 @@ func (u *unmarshaller) unmarshalNExt(n uint) (any, error) {
 // resolveExtensionType tries to resolve the given extension type and data to a concrete object.
 // It returns a *UnresolvedExtensionType if it is unable to.
 func (u *unmarshaller) resolveExtensionType(extensionType int, data []byte) (any, error) {
-	// TODO
-
-	if u.opts.EnableUnsupportedExtensionTypeError {
-		return nil, UnsupportedExtensionTypeError
+	unmarshalFn := u.getUnmarshalExtensionTypeFn(extensionType)
+	if unmarshalFn == nil {
+		if u.opts.EnableUnsupportedExtensionTypeError {
+			return nil, UnsupportedExtensionTypeError
+		}
+		return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, nil
 	}
-	return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, nil
+
+	return unmarshalFn(data)
+}
+
+// getUnmarshalExtensionTypeFn returns the UnmarshalExtensionTypeFn for the given extensionType, if
+// any.
+func (u *unmarshaller) getUnmarshalExtensionTypeFn(extensionType int) UnmarshalExtensionTypeFn {
+	if extensionType < 0 {
+		return standardExtensions[extensionType]
+	} else {
+		return u.opts.ApplicationExtensions[extensionType]
+	}
 }
 
 // readByte is a helper that reads exactly one byte.
@@ -357,4 +377,41 @@ func (u *unmarshaller) readByte() (byte, error) {
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(u.r, buf)
 	return buf[0], err
+}
+
+// Standard extensions -----------------------------------------------------------------------------
+
+// standardExtensions maps (standard) extension types to the corresponding UnmarshalExtensionTypeFn.
+var standardExtensions = map[int]UnmarshalExtensionTypeFn{
+	-1: unmarshalTimestampExtensionType,
+}
+
+// InvalidTimestampError is the error returned for an invalid timestamp.
+var InvalidTimestampError = errors.New("Invalid timestamp")
+
+// unmarshalTimestampExtensionType is an UnmarshalExtensionTypeFn that unmarshals the standard (-1)
+// timestamp extension type.
+func unmarshalTimestampExtensionType(data []byte) (any, error) {
+	switch len(data) {
+	case 4:
+		sec := int64(binary.BigEndian.Uint32(data))
+		return time.Unix(sec, 0), nil
+	case 8:
+		data64 := binary.BigEndian.Uint64(data[4:12])
+		nsec := int64(data64 >> 34)
+		sec := int64(data64 & 0x00000003ffffffff)
+		if nsec >= 1_000_000_000 {
+			return nil, InvalidTimestampError
+		}
+		return time.Unix(sec, nsec), nil
+	case 12:
+		nsec := int64(binary.BigEndian.Uint32(data[0:4]))
+		sec := int64(binary.BigEndian.Uint64(data[4:12]))
+		if nsec >= 1_000_000_000 {
+			return nil, InvalidTimestampError
+		}
+		return time.Unix(sec, nsec), nil
+	default:
+		return nil, InvalidTimestampError
+	}
 }
