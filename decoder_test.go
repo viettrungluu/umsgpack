@@ -7,6 +7,7 @@ package umsgpack_test
 
 import (
 	"bytes"
+	"io"
 	"math"
 	"reflect"
 	"strconv"
@@ -120,6 +121,7 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xd0, 0xff}, decoded: int(-1)},
 		{encoded: []byte{0xd0, 0xfe}, decoded: int(-2)},
 		{encoded: []byte{0xd0, 0x80}, decoded: int(-128)},
+		{encoded: []byte{0xd0}, err: io.EOF},
 		// - int 16:
 		{encoded: []byte{0xd1, 0x00, 0x00}, decoded: int(0)},
 		{encoded: []byte{0xd1, 0x00, 0x01}, decoded: int(1)},
@@ -127,6 +129,8 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xd1, 0xff, 0xff}, decoded: int(-1)},
 		{encoded: []byte{0xd1, 0xff, 0xfe}, decoded: int(-2)},
 		{encoded: []byte{0xd1, 0x80, 0x00}, decoded: int(-32768)},
+		{encoded: []byte{0xd1}, err: io.EOF},
+		{encoded: []byte{0xd1, 0x00}, err: io.ErrUnexpectedEOF},
 		// - int 32:
 		{encoded: []byte{0xd2, 0x00, 0x00, 0x00, 0x00}, decoded: int(0)},
 		{encoded: []byte{0xd2, 0x00, 0x00, 0x00, 0x01}, decoded: int(1)},
@@ -134,6 +138,8 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xd2, 0xff, 0xff, 0xff, 0xff}, decoded: int(-1)},
 		{encoded: []byte{0xd2, 0xff, 0xff, 0xff, 0xfe}, decoded: int(-2)},
 		{encoded: []byte{0xd2, 0x80, 0x00, 0x00, 0x00}, decoded: int(-(1 << 31))},
+		{encoded: []byte{0xd2}, err: io.EOF},
+		{encoded: []byte{0xd2, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		// - int 64:
 		{encoded: []byte{0xd3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: int(0)},
 		{encoded: []byte{0xd3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, decoded: int(1)},
@@ -141,27 +147,36 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xd3, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, decoded: int(-1)},
 		{encoded: []byte{0xd3, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe}, decoded: int(-2)},
 		{encoded: []byte{0xd3, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: int(-(1 << 63))},
+		{encoded: []byte{0xd3}, err: io.EOF},
+		{encoded: []byte{0xd3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		// uint:
 		// - uint 8:
 		{encoded: []byte{0xcc, 0x00}, decoded: uint(0)},
 		{encoded: []byte{0xcc, 0x01}, decoded: uint(1)},
 		{encoded: []byte{0xcc, 0xfe}, decoded: uint(254)},
 		{encoded: []byte{0xcc, 0xff}, decoded: uint(255)},
+		{encoded: []byte{0xcc}, err: io.EOF},
 		// - uint 16:
 		{encoded: []byte{0xcd, 0x00, 0x00}, decoded: uint(0)},
 		{encoded: []byte{0xcd, 0x00, 0x01}, decoded: uint(1)},
 		{encoded: []byte{0xcd, 0xff, 0xfe}, decoded: uint(65534)},
 		{encoded: []byte{0xcd, 0xff, 0xff}, decoded: uint(65535)},
+		{encoded: []byte{0xcd}, err: io.EOF},
+		{encoded: []byte{0xcd, 0x00}, err: io.ErrUnexpectedEOF},
 		// - uint 32:
 		{encoded: []byte{0xce, 0x00, 0x00, 0x00, 0x00}, decoded: uint(0)},
 		{encoded: []byte{0xce, 0x00, 0x00, 0x00, 0x01}, decoded: uint(1)},
 		{encoded: []byte{0xce, 0xff, 0xff, 0xff, 0xfe}, decoded: uint(1<<32 - 2)},
 		{encoded: []byte{0xce, 0xff, 0xff, 0xff, 0xff}, decoded: uint(1<<32 - 1)},
+		{encoded: []byte{0xce}, err: io.EOF},
+		{encoded: []byte{0xce, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		// - uint 64:
 		{encoded: []byte{0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: uint(0)},
 		{encoded: []byte{0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, decoded: uint(1)},
 		{encoded: []byte{0xcf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe}, decoded: uint(1<<64 - 2)},
 		{encoded: []byte{0xcf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, decoded: uint(1<<64 - 1)},
+		{encoded: []byte{0xcf}, err: io.EOF},
+		{encoded: []byte{0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		// float32:
 		{encoded: []byte{0xca, 0x00, 0x00, 0x00, 0x00}, decoded: float32(0)},
 		{encoded: []byte{0xca, 0x00, 0x00, 0x00, 0x01}, decoded: float32(math.SmallestNonzeroFloat32)},
@@ -172,6 +187,8 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xca, 0x7f, 0x80, 0x00, 0x00}, decoded: float32(math.Inf(1))},
 		{encoded: []byte{0xca, 0xbf, 0x80, 0x00, 0x00}, decoded: float32(-1)},
 		{encoded: []byte{0xca, 0xff, 0x80, 0x00, 0x00}, decoded: float32(math.Inf(-1))},
+		{encoded: []byte{0xca}, err: io.EOF},
+		{encoded: []byte{0xca, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		// float64:
 		{encoded: []byte{0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: float64(0)},
 		{encoded: []byte{0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, decoded: float64(math.SmallestNonzeroFloat64)},
@@ -182,101 +199,141 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xcb, 0x7f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: math.Inf(1)},
 		{encoded: []byte{0xcb, 0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: float64(-1)},
 		{encoded: []byte{0xcb, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: math.Inf(-1)},
+		{encoded: []byte{0xcb}, err: io.EOF},
+		{encoded: []byte{0xcb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		// string:
 		// - fixstr:
 		{encoded: []byte{0xa0}, decoded: ""},
 		{encoded: []byte{0xa1, 0x30}, decoded: "0"},
 		{encoded: []byte{0xa2, 0x30, 0x31}, decoded: "01"},
 		{encoded: append([]byte{0xbf}, fillerChars(31)...), decoded: "0123456789012345678901234567890"},
+		{encoded: []byte{0xa1}, err: io.EOF},
+		{encoded: append([]byte{0xbf}, fillerChars(30)...), err: io.ErrUnexpectedEOF},
 		// - str 8:
 		{encoded: []byte{0xd9, 0x00}, decoded: ""},
 		{encoded: []byte{0xd9, 0x01, 0x30}, decoded: "0"},
 		{encoded: []byte{0xd9, 0x02, 0x30, 0x31}, decoded: "01"},
 		{encoded: append([]byte{0xd9, 0xff}, fillerChars(255)...), decoded: string(fillerChars(255))},
+		{encoded: []byte{0xd9}, err: io.EOF},
+		{encoded: []byte{0xd9, 0x01}, err: io.EOF},
+		{encoded: []byte{0xd9, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
 		// - str 16:
 		{encoded: []byte{0xda, 0x00, 0x00}, decoded: ""},
 		{encoded: []byte{0xda, 0x00, 0x01, 0x30}, decoded: "0"},
 		{encoded: []byte{0xda, 0x00, 0x02, 0x30, 0x31}, decoded: "01"},
 		{encoded: append([]byte{0xda, 0xff, 0xff}, fillerChars(65535)...), decoded: string(fillerChars(65535))},
+		{encoded: []byte{0xda}, err: io.EOF},
+		{encoded: []byte{0xda, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xda, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xda, 0x00, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
 		// - str 32:
 		{encoded: []byte{0xdb, 0x00, 0x00, 0x00, 0x00}, decoded: ""},
 		{encoded: []byte{0xdb, 0x00, 0x00, 0x00, 0x01, 0x30}, decoded: "0"},
 		{encoded: []byte{0xdb, 0x00, 0x00, 0x00, 0x02, 0x30, 0x31}, decoded: "01"},
 		{encoded: append([]byte{0xdb, 0x00, 0x01, 0x86, 0xa0}, fillerChars(100000)...), decoded: string(fillerChars(100000))},
+		{encoded: []byte{0xdb}, err: io.EOF},
+		{encoded: []byte{0xdb, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xdb, 0x00, 0x00, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xdb, 0x00, 0x00, 0x00, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
 		// binary:
 		// - bin 8:
 		{encoded: []byte{0xc4, 0x00}, decoded: []byte{}},
 		{encoded: []byte{0xc4, 0x01, 0x00}, decoded: []byte{0}},
 		{encoded: []byte{0xc4, 0x02, 0x00, 0x01}, decoded: []byte{0, 1}},
 		{encoded: append([]byte{0xc4, 0xff}, fillerBytes(255)...), decoded: fillerBytes(255)},
+		{encoded: []byte{0xc4}, err: io.EOF},
+		{encoded: []byte{0xc4, 0x01}, err: io.EOF},
+		{encoded: []byte{0xc4, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
 		// - bin 16:
 		{encoded: []byte{0xc5, 0x00, 0x00}, decoded: []byte{}},
 		{encoded: []byte{0xc5, 0x00, 0x01, 0x00}, decoded: []byte{0}},
 		{encoded: []byte{0xc5, 0x00, 0x02, 0x00, 0x01}, decoded: []byte{0, 1}},
 		{encoded: append([]byte{0xc5, 0xff, 0xff}, fillerBytes(65535)...), decoded: fillerBytes(65535)},
+		{encoded: []byte{0xc5}, err: io.EOF},
+		{encoded: []byte{0xc5, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xc5, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xc5, 0x00, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
 		// - bin 32:
 		{encoded: []byte{0xc6, 0x00, 0x00, 0x00, 0x00}, decoded: []byte{}},
 		{encoded: []byte{0xc6, 0x00, 0x00, 0x00, 0x01, 0x00}, decoded: []byte{0}},
 		{encoded: []byte{0xc6, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01}, decoded: []byte{0, 1}},
 		{encoded: append([]byte{0xc6, 0x00, 0x01, 0x86, 0xa0}, fillerBytes(100000)...), decoded: fillerBytes(100000)},
+		{encoded: []byte{0xc6}, err: io.EOF},
+		{encoded: []byte{0xc6, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xc6, 0x00, 0x00, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xc6, 0x00, 0x00, 0x00, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
 		// array:
 		// - fixarray:
 		{encoded: []byte{0x90}, decoded: []any{}},
 		{encoded: append([]byte{0x91}, genArrayData(1)...), decoded: []any{"0"}},
 		{encoded: append([]byte{0x92}, genArrayData(2)...), decoded: []any{"0", "1"}},
 		{encoded: append([]byte{0x9f}, genArrayData(15)...), decoded: genArray(15)},
+		// TODO: err
 		// - array 16:
 		{encoded: []byte{0xdc, 0x00, 0x00}, decoded: []any{}},
 		{encoded: append([]byte{0xdc, 0x00, 0x01}, genArrayData(1)...), decoded: []any{"0"}},
 		{encoded: append([]byte{0xdc, 0x00, 0x02}, genArrayData(2)...), decoded: []any{"0", "1"}},
 		{encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(65535)...), decoded: genArray(65535)},
+		// TODO: err
 		// - array 32:
 		{encoded: []byte{0xdd, 0x00, 0x00, 0x00, 0x00}, decoded: []any{}},
 		{encoded: append([]byte{0xdd, 0x00, 0x00, 0x00, 0x01}, genArrayData(1)...), decoded: []any{"0"}},
 		{encoded: append([]byte{0xdd, 0x00, 0x00, 0x00, 0x02}, genArrayData(2)...), decoded: []any{"0", "1"}},
 		{encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0xa0}, genArrayData(100000)...), decoded: genArray(100000)},
+		// TODO: err
 		// map:
 		// - fixmap:
 		{encoded: []byte{0x80}, decoded: map[any]any{}},
 		{encoded: append([]byte{0x81}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
 		{encoded: append([]byte{0x82}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
 		{encoded: append([]byte{0x8f}, genMapData(15)...), decoded: genMap(15)},
+		// TODO: err
 		// - map 16:
 		{encoded: []byte{0xde, 0x00, 0x00}, decoded: map[any]any{}},
 		{encoded: append([]byte{0xde, 0x00, 0x01}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
 		{encoded: append([]byte{0xde, 0x00, 0x02}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
 		{encoded: append([]byte{0xde, 0xff, 0xff}, genMapData(65535)...), decoded: genMap(65535)},
+		// TODO: err
 		// - map 32:
 		{encoded: []byte{0xdf, 0x00, 0x00, 0x00, 0x00}, decoded: map[any]any{}},
 		{encoded: append([]byte{0xdf, 0x00, 0x00, 0x00, 0x01}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
 		{encoded: append([]byte{0xdf, 0x00, 0x00, 0x00, 0x02}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
 		{encoded: append([]byte{0xdf, 0x00, 0x01, 0x86, 0xa0}, genMapData(100000)...), decoded: genMap(100000)},
+		// TODO: err
 		// extension type (unsupported):
 		// - ext 8:
 		{encoded: []byte{0xc7, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc7, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc7, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc7, 0xff, 0x7f}, fillerBytes(255)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(255)}},
+		// TODO: err
 		// - ext 16:
 		{encoded: []byte{0xc8, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc8, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc8, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc8, 0xff, 0xff, 0x7f}, fillerBytes(65535)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(65535)}},
+		// TODO: err
 		// - ext 32:
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0xa0, 0x7f}, fillerBytes(100000)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(100000)}},
+		// TODO: err
 		// - fixext 1
 		{encoded: []byte{0xd4, 0x00, 0x00}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0}}},
+		// TODO: err
 		// - fixext 2
 		{encoded: []byte{0xd5, 0x00, 0x00, 0x01}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1}}},
+		// TODO: err
 		// - fixext 4
 		{encoded: []byte{0xd6, 0x00, 0x00, 0x01, 0x02, 0x03}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3}}},
+		// TODO: err
 		// - fixext 8
 		{encoded: []byte{0xd7, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7}}},
+		// TODO: err
 		// - fixext 16
 		{encoded: []byte{0xd8, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}}},
+		// TODO: err
 		// TODO: timestamp ext
 	}
 	runTestCases(t, opts, tCs)
