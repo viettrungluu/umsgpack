@@ -1,6 +1,7 @@
 package umsgpack
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -8,7 +9,7 @@ import (
 	"time"
 )
 
-// TODO: assert strconv.IntSize >= 64 (in init, maybe).
+// Errors ------------------------------------------------------------------------------------------
 
 // DuplicateKeyError is the error returned if data for a map has duplicate keys.
 //
@@ -24,11 +25,33 @@ var UnsupportedExtensionTypeError = errors.New("Unsupported extension type")
 // InvalidFormatError is the error returned if an invalid format (0xc1) is encountered.
 var InvalidFormatError = errors.New("Invalid format")
 
-// TODO
-// notes: always int, uint
+// Unmarshal ---------------------------------------------------------------------------------------
+
+var DefaultUnmarshalOptions = &UnmarshalOptions{}
+
+// Unmarshal unmarshals a single MessagePack object from r. It is very simplistic, and produces the
+// following types:
+//   - nil for nil
+//   - bool for true or false
+//   - int for any integer serialized as signed
+//   - uint for any integer serialized as unsigned
+//   - float32 and float64 for 32- and 64-bit floats, respectively
+//   - string for (UTF-8) string
+//   - []byte for binary
+//   - []any for array
+//   - map[any]any for map
+//   - time.Time for timestamp (extension type -1)
 func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
+	if opts == nil {
+		opts = DefaultUnmarshalOptions
+	}
 	u := &unmarshaller{opts: opts, r: r}
 	return u.unmarshalObject()
+}
+
+// UnmarshalBytes is like Unmarshal, except taking
+func UnmarshalBytes(opts *UnmarshalOptions, data []byte) (any, error) {
+	return Unmarshal(opts, bytes.NewBuffer(data))
 }
 
 // UnmarshalOptions specifies options for Unmarshal.
@@ -57,6 +80,9 @@ type UnresolvedExtensionType struct {
 	Data          []byte
 }
 
+// unmarshaller ------------------------------------------------------------------------------------
+
+// An unmarshaller handles MessagePack unmarshalling for Unmarshal.
 type unmarshaller struct {
 	opts *UnmarshalOptions
 	r    io.Reader
