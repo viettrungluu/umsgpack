@@ -9,11 +9,13 @@ import (
 	"bytes"
 	"math"
 	"reflect"
+	"strconv"
 	"testing"
 
 	. "github.com/viettrungluu/umsgpack"
 )
 
+// fillerChars generates n filler characters in the pattern 012345678901234....
 func fillerChars(n int) []byte {
 	rv := make([]byte, n)
 	for i := 0; i < n; i += 1 {
@@ -22,6 +24,7 @@ func fillerChars(n int) []byte {
 	return rv
 }
 
+// fillerBytes generates n filler bytes in the pattern 0, 1, 2, ..., 255, 0, 1, ....
 func fillerBytes(n int) []byte {
 	rv := make([]byte, n)
 	for i := 0; i < n; i += 1 {
@@ -30,13 +33,68 @@ func fillerBytes(n int) []byte {
 	return rv
 }
 
-func TestUnmarshal(t *testing.T) {
+// genArrayData generates test array data with n entries.
+func genArrayData(n int) []byte {
+	rv := []byte{}
+	for i := 0; i < n; i += 1 {
+		s := strconv.Itoa(i)
+		rv = append(rv, byte(0xa0+len(s)))
+		rv = append(rv, []byte(s)...)
+	}
+	return rv
+}
+
+// genArrayData generates a test array with n entries.
+func genArray(n int) []any {
+	rv := []any{}
+	for i := 0; i < n; i += 1 {
+		rv = append(rv, strconv.Itoa(i))
+	}
+	return rv
+}
+
+// genMapData generates test map data with n key-value pairs.
+func genMapData(n int) []byte {
+	rv := []byte{}
+	for i := 0; i < n; i += 1 {
+		s := strconv.Itoa(i)
+		rv = append(rv, byte(0xa0+len(s)))
+		rv = append(rv, []byte(s)...)
+		j := i % 10000
+		rv = append(rv, 0xd1, byte(j>>8), byte(j))
+	}
+	return rv
+}
+
+// genMap generates test map with n key-value pairs.
+func genMap(n int) map[any]any {
+	rv := map[any]any{}
+	for i := 0; i < n; i += 1 {
+		rv[strconv.Itoa(i)] = i % 10000
+	}
+	return rv
+}
+
+type testCase struct {
+	encoded []byte
+	decoded any
+	err     error
+}
+
+func runTestCases(t *testing.T, opts *UnmarshalOptions, tCs []testCase) {
+	for _, tC := range tCs {
+		buf := bytes.NewBuffer(tC.encoded)
+		if actualDecoded, actualErr := Unmarshal(opts, buf); actualErr != tC.err {
+			t.Errorf("unexected error for encoded=%q (decoded=%#v, err=%v): actualErr=%v", tC.encoded, tC.decoded, tC.err, actualErr)
+		} else if tC.err == nil && !reflect.DeepEqual(actualDecoded, tC.decoded) {
+			t.Errorf("unexected result for encoded=%q (decoded=%#v): actualDecoded=%#v", tC.encoded, tC.decoded, actualDecoded)
+		}
+	}
+}
+
+func TestUnmarshal_defaultOpts(t *testing.T) {
 	opts := &UnmarshalOptions{}
-	testCases := []struct {
-		encoded []byte
-		decoded any
-		err     error
-	}{
+	tCs := []testCase{
 		// never used (0xc1):
 		{encoded: []byte{0xc1}, err: InvalidFormatError},
 		// nil:
@@ -161,78 +219,65 @@ func TestUnmarshal(t *testing.T) {
 		{encoded: []byte{0xc6, 0x00, 0x00, 0x00, 0x01, 0x00}, decoded: []byte{0}},
 		{encoded: []byte{0xc6, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01}, decoded: []byte{0, 1}},
 		{encoded: append([]byte{0xc6, 0x00, 0x01, 0x86, 0xa0}, fillerBytes(100000)...), decoded: fillerBytes(100000)},
-		// TODO: array, map, ext, timestamp
+		// array:
+		// - fixarray:
+		{encoded: []byte{0x90}, decoded: []any{}},
+		{encoded: append([]byte{0x91}, genArrayData(1)...), decoded: []any{"0"}},
+		{encoded: append([]byte{0x92}, genArrayData(2)...), decoded: []any{"0", "1"}},
+		{encoded: append([]byte{0x9f}, genArrayData(15)...), decoded: genArray(15)},
+		// - array 16:
+		{encoded: []byte{0xdc, 0x00, 0x00}, decoded: []any{}},
+		{encoded: append([]byte{0xdc, 0x00, 0x01}, genArrayData(1)...), decoded: []any{"0"}},
+		{encoded: append([]byte{0xdc, 0x00, 0x02}, genArrayData(2)...), decoded: []any{"0", "1"}},
+		{encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(65535)...), decoded: genArray(65535)},
+		// - array 32:
+		{encoded: []byte{0xdd, 0x00, 0x00, 0x00, 0x00}, decoded: []any{}},
+		{encoded: append([]byte{0xdd, 0x00, 0x00, 0x00, 0x01}, genArrayData(1)...), decoded: []any{"0"}},
+		{encoded: append([]byte{0xdd, 0x00, 0x00, 0x00, 0x02}, genArrayData(2)...), decoded: []any{"0", "1"}},
+		{encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0xa0}, genArrayData(100000)...), decoded: genArray(100000)},
+		// map:
+		// - fixmap:
+		{encoded: []byte{0x80}, decoded: map[any]any{}},
+		{encoded: append([]byte{0x81}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
+		{encoded: append([]byte{0x82}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
+		{encoded: append([]byte{0x8f}, genMapData(15)...), decoded: genMap(15)},
+		// - map 16:
+		{encoded: []byte{0xde, 0x00, 0x00}, decoded: map[any]any{}},
+		{encoded: append([]byte{0xde, 0x00, 0x01}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
+		{encoded: append([]byte{0xde, 0x00, 0x02}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
+		{encoded: append([]byte{0xde, 0xff, 0xff}, genMapData(65535)...), decoded: genMap(65535)},
+		// - map 32:
+		{encoded: []byte{0xdf, 0x00, 0x00, 0x00, 0x00}, decoded: map[any]any{}},
+		{encoded: append([]byte{0xdf, 0x00, 0x00, 0x00, 0x01}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
+		{encoded: append([]byte{0xdf, 0x00, 0x00, 0x00, 0x02}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
+		{encoded: append([]byte{0xdf, 0x00, 0x01, 0x86, 0xa0}, genMapData(100000)...), decoded: genMap(100000)},
+		// extension type (unsupported):
+		// - ext 8:
+		{encoded: []byte{0xc7, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
+		{encoded: []byte{0xc7, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
+		{encoded: []byte{0xc7, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
+		{encoded: append([]byte{0xc7, 0xff, 0x7f}, fillerBytes(255)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(255)}},
+		// - ext 16:
+		{encoded: []byte{0xc8, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
+		{encoded: []byte{0xc8, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
+		{encoded: []byte{0xc8, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
+		{encoded: append([]byte{0xc8, 0xff, 0xff, 0x7f}, fillerBytes(65535)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(65535)}},
+		// - ext 32:
+		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
+		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
+		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
+		{encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0xa0, 0x7f}, fillerBytes(100000)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(100000)}},
+		// - fixext 1
+		{encoded: []byte{0xd4, 0x00, 0x00}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0}}},
+		// - fixext 2
+		{encoded: []byte{0xd5, 0x00, 0x00, 0x01}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1}}},
+		// - fixext 4
+		{encoded: []byte{0xd6, 0x00, 0x00, 0x01, 0x02, 0x03}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3}}},
+		// - fixext 8
+		{encoded: []byte{0xd7, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7}}},
+		// - fixext 16
+		{encoded: []byte{0xd8, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}}},
+		// TODO: timestamp ext
 	}
-	for _, testCase := range testCases {
-		buf := bytes.NewBuffer(testCase.encoded)
-		if actualDecoded, actualErr := Unmarshal(opts, buf); actualErr != testCase.err {
-			t.Errorf("unexected error for encoded=%q (decoded=%#v, err=%v): actualErr=%v", testCase.encoded, testCase.decoded, testCase.err, actualErr)
-		} else if testCase.err == nil && !reflect.DeepEqual(actualDecoded, testCase.decoded) {
-			t.Errorf("unexected result for encoded=%q (decoded=%#v): actualDecoded=%#v", testCase.encoded, testCase.decoded, actualDecoded)
-		}
-	}
+	runTestCases(t, opts, tCs)
 }
-
-/*
-	switch {
-	case b <= 0x8f: // fixmap: 1000xxxx: 0x80 - 0x8f
-		return u.unmarshalNMap(uint(b & 0b1111))
-	case b <= 0x9f: // fixarray: 1001xxxx: 0x90 - 0x9f
-		return u.unmarshalNArray(uint(b & 0b1111))
-	}
-
-	switch b {
-	case 0xc7: // ext 8: 11000111: 0xc7
-		n, err := u.unmarshalUint8()
-		if err != nil {
-			return nil, err
-		}
-		return u.unmarshalNExt(n)
-	case 0xc8: // ext 16: 11001000: 0xc8
-		n, err := u.unmarshalUint16()
-		if err != nil {
-			return nil, err
-		}
-		return u.unmarshalNExt(n)
-	case 0xc9: // ext 32: 11001001: 0xc9
-		n, err := u.unmarshalUint32()
-		if err != nil {
-			return nil, err
-		}
-		return u.unmarshalNExt(n)
-	case 0xd4: // fixext 1: 11010100: 0xd4
-		return u.unmarshalNExt(1)
-	case 0xd5: // fixext 2: 11010101: 0xd5
-		return u.unmarshalNExt(2)
-	case 0xd6: // fixext 4: 11010110: 0xd6
-		return u.unmarshalNExt(4)
-	case 0xd7: // fixext 8: 11010111: 0xd7
-		return u.unmarshalNExt(8)
-	case 0xd8: // fixext 16: 11011000: 0xd8
-		return u.unmarshalNExt(16)
-	case 0xdc: // array 16: 11011100: 0xdc
-		n, err := u.unmarshalUint16()
-		if err != nil {
-			return nil, err
-		}
-		return u.unmarshalNArray(n)
-	case 0xdd: // array 32: 11011101: 0xdd
-		n, err := u.unmarshalUint32()
-		if err != nil {
-			return nil, err
-		}
-		return u.unmarshalNArray(n)
-	case 0xde: // map 16: 11011110: 0xde
-		n, err := u.unmarshalUint16()
-		if err != nil {
-			return nil, err
-		}
-		return u.unmarshalNMap(n)
-	case 0xdf: // map 32: 11011111: 0xdf
-		n, err := u.unmarshalUint32()
-		if err != nil {
-			return nil, err
-		}
-		return u.unmarshalNMap(n)
-	}
-*/
