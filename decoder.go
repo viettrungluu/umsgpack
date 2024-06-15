@@ -1,0 +1,360 @@
+package umsgpack
+
+import (
+	"encoding/binary"
+	"errors"
+	"io"
+	"math"
+)
+
+// TODO: assert strconv.IntSize >= 64 (in init, maybe).
+
+// DuplicateKeyError is the error returned if data for a map has duplicate keys.
+//
+// This may be suppressed by setting the DisableDuplicateKeyError option.
+var DuplicateKeyError = errors.New("Duplicate key")
+
+// UnsupportedExtensionTypeError is the error optionally returned if Unmarshal encounters an unknown
+// extension type.
+//
+// This is only returned if the EnableUnsupportedExtensionTypeError option is set.
+var UnsupportedExtensionTypeError = errors.New("Unsupported extension type")
+
+// InvalidFormat is the error returned if an invalid format (0xc1) is encountered.
+var InvalidFormat error = errors.New("Invalid format")
+
+// TODO
+// notes: always int, uint
+func Unmarshal(opts UnmarshalOptions, r io.Reader) (any, error) {
+	u := &unmarshaller{opts: opts, r: r}
+	return u.unmarshalObject()
+}
+
+type UnmarshalOptions struct {
+	// If DisableDuplicateKeyError is set, then DuplicateKeyErrors will not be returned.
+	//
+	// The default is false (to return such errors), since inconsistencies across unmarshallers
+	// could lead to security problems.
+	DisableDuplicateKeyError bool
+
+	// If EnableUnsupportedExtensionTypeError is set, then UnsupportedExtensionTypeErrors will
+	// be returned if an unsupported extension type is encountered.
+	EnableUnsupportedExtensionTypeError bool
+
+	// TODO
+}
+
+// An *UnresolvedExtensionType represents data from an unresolved/unsupported extension type.
+type UnresolvedExtensionType struct {
+	ExtensionType int8
+	Data          []byte
+}
+
+type unmarshaller struct {
+	opts UnmarshalOptions
+	r    io.Reader
+}
+
+// unmarshalObject unmarshals an object (the next byte is expected to be the format).
+func (u *unmarshaller) unmarshalObject() (any, error) {
+	b, err := u.readByte()
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case b <= 0x7f: // positive fixint: 0xxxxxxx: 0x00 - 0x7f
+		return int(b), nil
+	case b <= 0x8f: // fixmap: 1000xxxx: 0x80 - 0x8f
+		return u.unmarshalNMap(uint(b & 0b1111))
+	case b <= 0x9f: // fixarray: 1001xxxx: 0x90 - 0x9f
+		return u.unmarshalNArray(uint(b & 0b1111))
+	case b <= 0xbf: // fixstr: 101xxxxx: 0xa0 - 0xbf
+		return u.unmarshalNString(uint(b & 0b11111))
+	// Reaches individual range (handled below), until:
+	case b >= 0xe0: // negative fixint: 111xxxxx: 0xe0 - 0xff
+		// Cast to an int8 first, so that casting to an int will sign-extend.
+		return int(int8(b)), nil
+	}
+
+	switch b {
+	case 0xc0: // nil: 11000000: 0xc0
+		return nil, nil
+	case 0xc1: // (never used): 11000001: 0xc1
+		return nil, InvalidFormat
+	case 0xc2: // false: 11000010: 0xc2
+		return false, nil
+	case 0xc3: // true: 11000011: 0xc3
+		return true, nil
+	case 0xc4: // bin 8: 11000100: 0xc4
+		n, err := u.unmarshalUint8()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNBytes(n)
+	case 0xc5: // bin 16: 11000101: 0xc5
+		n, err := u.unmarshalUint16()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNBytes(n)
+	case 0xc6: // bin 32: 11000110: 0xc6
+		n, err := u.unmarshalUint32()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNBytes(n)
+	case 0xc7: // ext 8: 11000111: 0xc7
+		n, err := u.unmarshalUint8()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNExt(n)
+	case 0xc8: // ext 16: 11001000: 0xc8
+		n, err := u.unmarshalUint16()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNExt(n)
+	case 0xc9: // ext 32: 11001001: 0xc9
+		n, err := u.unmarshalUint32()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNExt(n)
+	case 0xca: // float 32: 11001010: 0xca
+		return u.unmarshalFloat32()
+	case 0xcb: // float 64: 11001011: 0xcb
+		return u.unmarshalFloat64()
+	case 0xcc: // uint 8: 11001100: 0xcc
+		return u.unmarshalUint8()
+	case 0xcd: // uint 16: 11001101: 0xcd
+		return u.unmarshalUint16()
+	case 0xce: // uint 32: 11001110: 0xce
+		return u.unmarshalUint32()
+	case 0xcf: // uint 64: 11001111: 0xcf
+		return u.unmarshalUint64()
+	case 0xd0: // int 8: 11010000: 0xd0
+		return u.unmarshalInt8()
+	case 0xd1: // int 16: 11010001: 0xd1
+		return u.unmarshalInt16()
+	case 0xd2: // int 32: 11010010: 0xd2
+		return u.unmarshalInt32()
+	case 0xd3: // int 64: 11010011: 0xd3
+		return u.unmarshalInt64()
+	case 0xd4: // fixext 1: 11010100: 0xd4
+		return u.unmarshalNExt(1)
+	case 0xd5: // fixext 2: 11010101: 0xd5
+		return u.unmarshalNExt(2)
+	case 0xd6: // fixext 4: 11010110: 0xd6
+		return u.unmarshalNExt(4)
+	case 0xd7: // fixext 8: 11010111: 0xd7
+		return u.unmarshalNExt(8)
+	case 0xd8: // fixext 16: 11011000: 0xd8
+		return u.unmarshalNExt(16)
+	case 0xd9: // str 8: 11011001: 0xd9
+		n, err := u.unmarshalUint8()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNString(n)
+	case 0xda: // str 16: 11011010: 0xda
+		n, err := u.unmarshalUint16()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNString(n)
+	case 0xdb: // str 32: 11011011: 0xdb
+		n, err := u.unmarshalUint32()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNString(n)
+	case 0xdc: // array 16: 11011100: 0xdc
+		n, err := u.unmarshalUint16()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNArray(n)
+	case 0xdd: // array 32: 11011101: 0xdd
+		n, err := u.unmarshalUint32()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNArray(n)
+	case 0xde: // map 16: 11011110: 0xde
+		n, err := u.unmarshalUint16()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNMap(n)
+	case 0xdf: // map 32: 11011111: 0xdf
+		n, err := u.unmarshalUint32()
+		if err != nil {
+			return nil, err
+		}
+		return u.unmarshalNMap(n)
+	}
+
+	panic("Should be unreachable!")
+}
+
+// unmarshalUint8 unmarshals a uint 8 (as a uint).
+func (u *unmarshaller) unmarshalUint8() (uint, error) {
+	buf := make([]byte, 1)
+	_, err := io.ReadFull(u.r, buf)
+	return uint(buf[0]), err
+}
+
+// unmarshalUint16 unmarshals a uint 16 (as a uint).
+func (u *unmarshaller) unmarshalUint16() (uint, error) {
+	buf := make([]byte, 2)
+	_, err := io.ReadFull(u.r, buf)
+	return uint(binary.BigEndian.Uint16(buf)), err
+}
+
+// unmarshalUint32 unmarshals a uint 32 (as a uint).
+func (u *unmarshaller) unmarshalUint32() (uint, error) {
+	buf := make([]byte, 4)
+	_, err := io.ReadFull(u.r, buf)
+	return uint(binary.BigEndian.Uint32(buf)), err
+}
+
+// unmarshalUint64 unmarshals a uint 64 (as a uint).
+func (u *unmarshaller) unmarshalUint64() (uint, error) {
+	buf := make([]byte, 8)
+	_, err := io.ReadFull(u.r, buf)
+	return uint(binary.BigEndian.Uint64(buf)), err
+}
+
+// unmarshalInt8 unmarshals an int 8 (as an int).
+func (u *unmarshaller) unmarshalInt8() (int, error) {
+	buf := make([]byte, 1)
+	_, err := io.ReadFull(u.r, buf)
+	return int(buf[0]), err
+}
+
+// unmarshalInt16 unmarshals an int 16 (as an int).
+func (u *unmarshaller) unmarshalInt16() (int, error) {
+	buf := make([]byte, 2)
+	_, err := io.ReadFull(u.r, buf)
+	// Cast to an int16 first, so that casting to an int will sign-extend.
+	return int(int16(binary.BigEndian.Uint16(buf))), err
+}
+
+// unmarshalInt32 unmarshals an int 32 (as an int).
+func (u *unmarshaller) unmarshalInt32() (int, error) {
+	buf := make([]byte, 4)
+	_, err := io.ReadFull(u.r, buf)
+	// Cast to an int32 first, so that casting to an int will sign-extend.
+	return int(int32(binary.BigEndian.Uint32(buf))), err
+}
+
+// unmarshalInt64 unmarshals an int 64 (as an int).
+func (u *unmarshaller) unmarshalInt64() (int, error) {
+	buf := make([]byte, 8)
+	_, err := io.ReadFull(u.r, buf)
+	// Cast to an int64 first, so that casting to an int will sign-extend.
+	return int(int64(binary.BigEndian.Uint64(buf))), err
+}
+
+// unmarshalFloat32 unmarshals a float 32 (as a float32).
+func (u *unmarshaller) unmarshalFloat32() (float32, error) {
+	buf := make([]byte, 4)
+	_, err := io.ReadFull(u.r, buf)
+	return math.Float32frombits(binary.BigEndian.Uint32(buf)), err
+}
+
+// unmarshalFloat64 unmarshals a float 64 (as a float64).
+func (u *unmarshaller) unmarshalFloat64() (float64, error) {
+	buf := make([]byte, 8)
+	_, err := io.ReadFull(u.r, buf)
+	return math.Float64frombits(binary.BigEndian.Uint64(buf)), err
+}
+
+// unmarshalNMap unmarshals a map with n entries.
+func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, error) {
+	rv := map[any]any{}
+	for i := uint(0); i < n; i += 1 {
+		key, err := u.unmarshalObject()
+		if err != nil {
+			return nil, err
+		}
+		if !u.opts.DisableDuplicateKeyError {
+			if _, alreadyPresent := rv[key]; alreadyPresent {
+				return nil, DuplicateKeyError
+			}
+		}
+
+		value, err := u.unmarshalObject()
+		if err != nil {
+			return nil, err
+		}
+
+		rv[key] = value
+	}
+	return rv, nil
+}
+
+// unmarshalNArray unmarshals an array with n entries.
+func (u *unmarshaller) unmarshalNArray(n uint) ([]any, error) {
+	rv := make([]any, 0, n)
+	for i := uint(0); i < n; i += 1 {
+		entry, err := u.unmarshalObject()
+		if err != nil {
+			return nil, err
+		}
+		rv = append(rv, entry)
+	}
+	return rv, nil
+}
+
+// unmarshalNString unmarshals a string of length n (bytes).
+// Note that it does not validate that it is valid UTF-8.
+// TODO: Should it be an option?
+func (u *unmarshaller) unmarshalNString(n uint) (string, error) {
+	buf := make([]byte, n)
+	_, err := io.ReadFull(u.r, buf)
+	return string(buf), err
+}
+
+// unmarshalNBytes unmarshals a byte array of length n (bytes).
+func (u *unmarshaller) unmarshalNBytes(n uint) ([]byte, error) {
+	buf := make([]byte, n)
+	_, err := io.ReadFull(u.r, buf)
+	return buf, err
+}
+
+// unmarshalNExt unmarshals an extension with data of length n (bytes).
+func (u *unmarshaller) unmarshalNExt(n uint) (any, error) {
+	extensionType, err := u.unmarshalInt8()
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([]byte, n)
+	_, err = io.ReadFull(u.r, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return u.resolveExtensionType(extensionType, data)
+}
+
+// resolveExtensionType tries to resolve the given extension type and data to a concrete object.
+// It returns a *UnresolvedExtensionType if it is unable to.
+func (u *unmarshaller) resolveExtensionType(extensionType int, data []byte) (any, error) {
+	// TODO
+
+	if u.opts.EnableUnsupportedExtensionTypeError {
+		return nil, UnsupportedExtensionTypeError
+	}
+	return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, nil
+}
+
+// readByte is a helper that reads exactly one byte.
+func (u *unmarshaller) readByte() (byte, error) {
+	buf := make([]byte, 1)
+	_, err := io.ReadFull(u.r, buf)
+	return buf[0], err
+}
