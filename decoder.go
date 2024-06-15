@@ -1,3 +1,6 @@
+// Copyright 2024 Viet-Trung Luu.
+// Use of this source code is governed by the license in the LICENSE file.
+
 package umsgpack
 
 import (
@@ -264,7 +267,8 @@ func (u *unmarshaller) unmarshalUint64() (uint, error) {
 func (u *unmarshaller) unmarshalInt8() (int, error) {
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(u.r, buf)
-	return int(buf[0]), err
+	// Cast to an int8 first, so that casting to an int will sign-extend.
+	return int(int8(buf[0])), err
 }
 
 // unmarshalInt16 unmarshals an int 16 (as an int).
