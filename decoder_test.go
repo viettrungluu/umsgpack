@@ -268,19 +268,32 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: append([]byte{0x91}, genArrayData(1)...), decoded: []any{"0"}},
 		{encoded: append([]byte{0x92}, genArrayData(2)...), decoded: []any{"0", "1"}},
 		{encoded: append([]byte{0x9f}, genArrayData(15)...), decoded: genArray(15)},
-		// TODO: err
+		{encoded: []byte{0x91}, err: io.EOF},
+		{encoded: []byte{0x91, 0xa1}, err: io.EOF},
+		{encoded: []byte{0x91, 0xc4, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: append([]byte{0x9f}, genArrayData(14)...), err: io.EOF},
 		// - array 16:
 		{encoded: []byte{0xdc, 0x00, 0x00}, decoded: []any{}},
 		{encoded: append([]byte{0xdc, 0x00, 0x01}, genArrayData(1)...), decoded: []any{"0"}},
 		{encoded: append([]byte{0xdc, 0x00, 0x02}, genArrayData(2)...), decoded: []any{"0", "1"}},
 		{encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(65535)...), decoded: genArray(65535)},
-		// TODO: err
+		{encoded: []byte{0xdc}, err: io.EOF},
+		{encoded: []byte{0xdc, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xdc, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xdc, 0x00, 0x01, 0xc4, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(65534)...), err: io.EOF},
 		// - array 32:
 		{encoded: []byte{0xdd, 0x00, 0x00, 0x00, 0x00}, decoded: []any{}},
 		{encoded: append([]byte{0xdd, 0x00, 0x00, 0x00, 0x01}, genArrayData(1)...), decoded: []any{"0"}},
 		{encoded: append([]byte{0xdd, 0x00, 0x00, 0x00, 0x02}, genArrayData(2)...), decoded: []any{"0", "1"}},
 		{encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0xa0}, genArrayData(100000)...), decoded: genArray(100000)},
-		// TODO: err
+		{encoded: []byte{0xdd}, err: io.EOF},
+		{encoded: []byte{0xdd, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xdd, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xdd, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xdd, 0x00, 0x00, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xdd, 0x00, 0x00, 0x00, 0x01, 0xc4, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0xa0}, genArrayData(99999)...), err: io.EOF},
 		// map:
 		// - fixmap:
 		{encoded: []byte{0x80}, decoded: map[any]any{}},
