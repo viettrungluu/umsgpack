@@ -300,54 +300,55 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: append([]byte{0x81}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
 		{encoded: append([]byte{0x82}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
 		{encoded: append([]byte{0x8f}, genMapData(15)...), decoded: genMap(15)},
-		// TODO: err
+		{encoded: []byte{0x81}, err: io.EOF},
+		// TODO: test more errors.
 		// - map 16:
 		{encoded: []byte{0xde, 0x00, 0x00}, decoded: map[any]any{}},
 		{encoded: append([]byte{0xde, 0x00, 0x01}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
 		{encoded: append([]byte{0xde, 0x00, 0x02}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
 		{encoded: append([]byte{0xde, 0xff, 0xff}, genMapData(65535)...), decoded: genMap(65535)},
-		// TODO: err
+		// TODO: test errors.
 		// - map 32:
 		{encoded: []byte{0xdf, 0x00, 0x00, 0x00, 0x00}, decoded: map[any]any{}},
 		{encoded: append([]byte{0xdf, 0x00, 0x00, 0x00, 0x01}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
 		{encoded: append([]byte{0xdf, 0x00, 0x00, 0x00, 0x02}, genMapData(2)...), decoded: map[any]any{"0": int(0), "1": int(1)}},
 		{encoded: append([]byte{0xdf, 0x00, 0x01, 0x86, 0xa0}, genMapData(100000)...), decoded: genMap(100000)},
-		// TODO: err
+		// TODO: test errors.
 		// extension type (unsupported):
 		// - ext 8:
 		{encoded: []byte{0xc7, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc7, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc7, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc7, 0xff, 0x7f}, fillerBytes(255)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(255)}},
-		// TODO: err
+		// TODO: test errors.
 		// - ext 16:
 		{encoded: []byte{0xc8, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc8, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc8, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc8, 0xff, 0xff, 0x7f}, fillerBytes(65535)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(65535)}},
-		// TODO: err
+		// TODO: test errors.
 		// - ext 32:
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0xa0, 0x7f}, fillerBytes(100000)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(100000)}},
-		// TODO: err
+		// TODO: test errors.
 		// - fixext 1
 		{encoded: []byte{0xd4, 0x00, 0x00}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0}}},
-		// TODO: err
+		// TODO: test errors.
 		// - fixext 2
 		{encoded: []byte{0xd5, 0x00, 0x00, 0x01}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1}}},
-		// TODO: err
+		// TODO: test errors.
 		// - fixext 4
 		{encoded: []byte{0xd6, 0x00, 0x00, 0x01, 0x02, 0x03}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3}}},
-		// TODO: err
+		// TODO: test errors.
 		// - fixext 8
 		{encoded: []byte{0xd7, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7}}},
-		// TODO: err
+		// TODO: test errors.
 		// - fixext 16
 		{encoded: []byte{0xd8, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}}},
-		// TODO: err
-		// TODO: timestamp ext
+		// TODO: test errors.
+		// TODO: test timestamp ext.
 	}
 	runTestCases(t, opts, tCs)
 }
