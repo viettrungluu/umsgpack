@@ -249,6 +249,30 @@ var commonMarshalTestCases = []marshalTestCase{
 	// str 32: 11011011: 0xdb
 	{obj: string(fillerChars(0x10000)), encoded: append([]byte{0xdb, 0x00, 0x01, 0x00, 0x00}, fillerChars(0x10000)...)},
 	{obj: string(fillerChars(99999)), encoded: append([]byte{0xdb, 0x00, 0x01, 0x86, 0x9f}, fillerChars(99999)...)},
+	// *** []byte
+	// bin 8: 11000100: 0xc4
+	{obj: []byte{}, encoded: []byte{0xc4, 0x00}},
+	{obj: []byte{0x00}, encoded: []byte{0xc4, 0x01, 0x00}},
+	{obj: []byte{0x00, 0x01}, encoded: []byte{0xc4, 0x02, 0x00, 0x01}},
+	{obj: fillerBytes(0xff), encoded: append([]byte{0xc4, 0xff}, fillerBytes(0xff)...)},
+	// bin 16: 11000101: 0xc5
+	{obj: fillerBytes(0x100), encoded: append([]byte{0xc5, 0x01, 0x00}, fillerBytes(0x100)...)},
+	{obj: fillerBytes(0xffff), encoded: append([]byte{0xc5, 0xff, 0xff}, fillerBytes(0xffff)...)},
+	// bin 32: 11000110: 0xc6
+	{obj: fillerBytes(0x10000), encoded: append([]byte{0xc6, 0x00, 0x01, 0x00, 0x00}, fillerBytes(0x10000)...)},
+	{obj: fillerBytes(99999), encoded: append([]byte{0xc6, 0x00, 0x01, 0x86, 0x9f}, fillerBytes(99999)...)},
+	// *** []any
+	// fixarray: 1001xxxx: 0x90 - 0x9f
+	{obj: []any{}, encoded: []byte{0x90}},
+	{obj: genArray(1), encoded: append([]byte{0x91}, genArrayData(1)...)},
+	{obj: genArray(2), encoded: append([]byte{0x92}, genArrayData(2)...)},
+	{obj: genArray(0xf), encoded: append([]byte{0x9f}, genArrayData(0xf)...)},
+	// array 16: 11011100: 0xdc
+	{obj: genArray(0x10), encoded: append([]byte{0xdc, 0x00, 0x10}, genArrayData(0x10)...)},
+	{obj: genArray(0xffff), encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(0xffff)...)},
+	// array 32: 11011101: 0xdd
+	{obj: genArray(0x10000), encoded: append([]byte{0xdd, 0x00, 0x01, 0x00, 0x00}, genArrayData(0x10000)...)},
+	{obj: genArray(99999), encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0x9f}, genArrayData(99999)...)},
 }
 
 // TestMarshal_defaultOpts tests Marshal with the default options (all boolean options are false).

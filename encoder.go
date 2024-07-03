@@ -99,11 +99,12 @@ func (m *marshaller) marshalObject(obj any) error {
 		return m.marshalFloat64(v)
 	case string:
 		return m.marshalString(v)
-		// TODO:
-		// case []byte:
-		// case []any:
+	case []byte:
+		return m.marshalBytes(v)
+	case []any:
+		return m.marshalArray(v)
 		// case map[any]any:
-		// TODO: other arrays and maps?
+		// TODO: other arrays and maps? and structs?
 	}
 
 	// TODO
@@ -179,25 +180,71 @@ func (m *marshaller) marshalString(s string) error {
 		if err := m.write(byte(0xa0 + u)); err != nil {
 			return err
 		}
-		return m.write([]byte(s)...)
 	case u <= math.MaxUint8: // str 8: 11011001: 0xd9
 		if err := m.write(0xd9, byte(u&0xff)); err != nil {
 			return err
 		}
-		return m.write([]byte(s)...)
 	case u <= math.MaxUint16: // str 16: 11011010: 0xda
 		if err := m.write(0xda, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
-		return m.write([]byte(s)...)
 	case u <= math.MaxUint32: // str 32: 11011011: 0xdb
 		if err := m.write(0xdb, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
-		return m.write([]byte(s)...)
 	default:
 		return ObjectTooBigForMarshallingError
 	}
+	return m.write([]byte(s)...)
+}
+
+// marshalBytes marshals a []byte (in a minimal way).
+func (m *marshaller) marshalBytes(b []byte) error {
+	u := len(b)
+	switch {
+	case u <= math.MaxUint8: // bin 8: 11000100: 0xc4
+		if err := m.write(0xc4, byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint16: // bin 16: 11000101: 0xc5
+		if err := m.write(0xc5, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint32: // bin 32: 11000110: 0xc6
+		if err := m.write(0xc6, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	default:
+		return ObjectTooBigForMarshallingError
+	}
+	return m.write(b...)
+}
+
+// marshalArray marshals a []any (in a minimal way).
+func (m *marshaller) marshalArray(a []any) error {
+	u := len(a)
+	switch {
+	case u <= (0x9f - 0x90): // fixarray: 1001xxxx: 0x90 - 0x9f
+		if err := m.write(byte(0x90 + u)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint16: // array 16: 11011100: 0xdc
+		if err := m.write(0xdc, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint32: // array 32: 11011101: 0xdd
+		if err := m.write(0xdd, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	default:
+		return ObjectTooBigForMarshallingError
+	}
+	for _, v := range a {
+		if err := m.marshalObject(v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // write is a helper for calling the io.Writer's Write.

@@ -28,6 +28,7 @@ func fillerChars(n int) []byte {
 }
 
 // fillerBytes generates n filler bytes in the pattern 0, 1, 2, ..., 255, 0, 1, ....
+// TODO: Move to a different file.
 func fillerBytes(n int) []byte {
 	rv := make([]byte, n)
 	for i := 0; i < n; i += 1 {
@@ -36,7 +37,8 @@ func fillerBytes(n int) []byte {
 	return rv
 }
 
-// genArrayData generates test array data with n entries.
+// genArrayData generates test array (encoded) data with n entries; matches genArray.
+// TODO: Move to a different file.
 func genArrayData(n int) []byte {
 	rv := []byte{}
 	for i := 0; i < n; i += 1 {
@@ -47,7 +49,8 @@ func genArrayData(n int) []byte {
 	return rv
 }
 
-// genArrayData generates a test array with n entries.
+// genArray generates a test array with n entries; matches genArrayData.
+// TODO: Move to a different file.
 func genArray(n int) []any {
 	rv := []any{}
 	for i := 0; i < n; i += 1 {
