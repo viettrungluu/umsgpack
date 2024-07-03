@@ -295,8 +295,6 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xdd, 0x00, 0x00, 0x00, 0x01, 0xc4, 0x02, 0x00}, err: io.ErrUnexpectedEOF},
 		{encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0xa0}, genArrayData(99999)...), err: io.EOF},
 		// map:
-		// TODO: test DuplicateKeyError.
-		// TODO: test various map key types (valid and invalid).
 		// - fixmap:
 		{encoded: []byte{0x80}, decoded: map[any]any{}},
 		{encoded: append([]byte{0x81}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
@@ -401,6 +399,30 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xd8, 0x00}, err: io.EOF},
 		{encoded: []byte{0xd8, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		{encoded: []byte{0xd8, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e}, err: io.ErrUnexpectedEOF},
+		// valid map key types (via fixmap):
+		{encoded: append([]byte{0x81}, 0xc0, 0x2a), decoded: map[any]any{nil: int(42)}},
+		{encoded: append([]byte{0x81}, 0xc2, 0x2a), decoded: map[any]any{false: int(42)}},
+		{encoded: append([]byte{0x81}, 0xc3, 0x2a), decoded: map[any]any{true: int(42)}},
+		{encoded: append([]byte{0x81}, 0x0c, 0x2a), decoded: map[any]any{int(12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xf4, 0x2a), decoded: map[any]any{int(-12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xd0, 0x0c, 0x2a), decoded: map[any]any{int(12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xd1, 0xff, 0xf4, 0x2a), decoded: map[any]any{int(-12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xd2, 0x00, 0x00, 0x00, 0x0c, 0x2a), decoded: map[any]any{int(12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xd3, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf4, 0x2a), decoded: map[any]any{int(-12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xcc, 0x0c, 0x2a), decoded: map[any]any{uint(12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xcd, 0x00, 0x0c, 0x2a), decoded: map[any]any{uint(12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xce, 0x00, 0x00, 0x00, 0x0c, 0x2a), decoded: map[any]any{uint(12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x2a), decoded: map[any]any{uint(12): int(42)}},
+		{encoded: append([]byte{0x81}, 0xca, 0x3f, 0x80, 0x00, 0x00, 0x2a), decoded: map[any]any{float32(1): int(42)}},
+		{encoded: append([]byte{0x81}, 0xcb, 0x3f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2a), decoded: map[any]any{float64(1): int(42)}},
+		{encoded: append([]byte{0x81}, 0xa2, 0x31, 0x32, 0x2a), decoded: map[any]any{"12": int(42)}},
+		{encoded: append([]byte{0x81}, 0xd9, 0x02, 0x31, 0x32, 0x2a), decoded: map[any]any{"12": int(42)}},
+		{encoded: append([]byte{0x81}, 0xda, 0x00, 0x02, 0x31, 0x32, 0x2a), decoded: map[any]any{"12": int(42)}},
+		{encoded: append([]byte{0x81}, 0xdb, 0x00, 0x00, 0x00, 0x02, 0x31, 0x32, 0x2a), decoded: map[any]any{"12": int(42)}},
+		// moar
+
+		// TODO: test invalid map key types.
+		// TODO: test map DuplicateKeyError.
 		// TODO: test timestamp ext.
 	}
 	runTestCases(t, opts, tCs)
