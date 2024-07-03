@@ -296,6 +296,7 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0xa0}, genArrayData(99999)...), err: io.EOF},
 		// map:
 		// TODO: test DuplicateKeyError.
+		// TODO: test various map key types (valid and invalid).
 		// - fixmap:
 		{encoded: []byte{0x80}, decoded: map[any]any{}},
 		{encoded: append([]byte{0x81}, genMapData(1)...), decoded: map[any]any{"0": int(0)}},
