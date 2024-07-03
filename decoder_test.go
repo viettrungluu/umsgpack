@@ -440,7 +440,7 @@ var commonUnmarshalTestCases = []unmarshalTestCase{
 	{encoded: []byte{0x81, 0xd9, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
 	{encoded: []byte{0x81, 0xda, 0x00, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
 	{encoded: []byte{0x81, 0xdb, 0x00, 0x00, 0x00, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
-	// TODO: test timestamp ext key.
+	{encoded: []byte{0x81, 0xd6, 0xff, 0x12, 0x34, 0x56, 0x78, 0x2a}, decoded: map[any]any{time.Unix(0x12345678, 0): int(42)}},
 }
 
 // defaultOptsUnmarshalTestCases contains unmarshalTestCases that should pass for the default
