@@ -29,18 +29,17 @@ func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions
 	}
-	return nil
 	m := &marshaller{opts: opts, w: w}
 	return m.marshalObject(obj)
 }
 
 // MarshalToBytes is like Marshal, except that it returns byte data instead of using an io.Writer.
 func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
-	w := &bytes.Buffer{}
-	if err := Marshal(opts, w, obj); err != nil {
+	buf := &bytes.Buffer{}
+	if err := Marshal(opts, buf, obj); err != nil {
 		return nil, err
 	}
-	return w.Bytes(), nil
+	return buf.Bytes(), nil
 }
 
 // MarshalOptions specifies options for Marshal.
