@@ -445,6 +445,8 @@ var commonUnmarshalTestCases = []unmarshalTestCase{
 
 // defaultOptsUnmarshalTestCases contains unmarshalTestCases that should pass for the default
 // options.
+//
+// NOTE: Avoid testing extensions 34 and 35 here.
 var defaultOptsUnmarshalTestCases = []unmarshalTestCase{
 	// extension type (unsupported):
 	// - ext 8:
@@ -567,4 +569,66 @@ func TestUnmarshal_nonDefaultOpts(t *testing.T) {
 	testUnmarshal(t, opts, nonDefaultOptsUnmarshalTestCases)
 }
 
-// TODO: test application extensions.
+// Used by TestUnmarshal_applicationExtensions below.
+type testExtensionType struct {
+	data []byte
+}
+
+var applicationExtensionsUnmarshalTestCases = []unmarshalTestCase{
+	// extension type 34 (supported):
+	// - ext 8:
+	{encoded: []byte{0xc7, 0x00, 0x22}, decoded: ""},
+	{encoded: []byte{0xc7, 0x02, 0x22, 0x68, 0x69}, decoded: "hi"},
+	// - ext 16:
+	{encoded: []byte{0xc8, 0x00, 0x02, 0x22, 0x68, 0x69}, decoded: "hi"},
+	// - ext 32:
+	{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x02, 0x22, 0x68, 0x69}, decoded: "hi"},
+	// - fixext 1
+	{encoded: []byte{0xd4, 0x22, 0x68}, decoded: "h"},
+	// - fixext 2
+	{encoded: []byte{0xd5, 0x22, 0x68, 0x69}, decoded: "hi"},
+	// - fixext 4
+	{encoded: []byte{0xd6, 0x22, 0x68, 0x69, 0x68, 0x69}, decoded: "hihi"},
+	// - fixext 8
+	{encoded: []byte{0xd7, 0x22, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69}, decoded: "hihihihi"},
+	// - fixext 16
+	{encoded: []byte{0xd8, 0x22, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69}, decoded: "hihihihihihihihi"},
+	// TODO: test as a map key (supported).
+	// extension type 35 (supported):
+	// - ext 8:
+	{encoded: []byte{0xc7, 0x00, 0x23}, decoded: &testExtensionType{data: []byte{}}},
+	{encoded: []byte{0xc7, 0x02, 0x23, 0x68, 0x69}, decoded: &testExtensionType{data: []byte("hi")}},
+	// - ext 16:
+	{encoded: []byte{0xc8, 0x00, 0x02, 0x23, 0x68, 0x69}, decoded: &testExtensionType{data: []byte("hi")}},
+	// - ext 32:
+	{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x02, 0x23, 0x68, 0x69}, decoded: &testExtensionType{data: []byte("hi")}},
+	// - fixext 1
+	{encoded: []byte{0xd4, 0x23, 0x68}, decoded: &testExtensionType{data: []byte("h")}},
+	// - fixext 2
+	{encoded: []byte{0xd5, 0x23, 0x68, 0x69}, decoded: &testExtensionType{data: []byte("hi")}},
+	// - fixext 4
+	{encoded: []byte{0xd6, 0x23, 0x68, 0x69, 0x68, 0x69}, decoded: &testExtensionType{data: []byte("hihi")}},
+	// - fixext 8
+	{encoded: []byte{0xd7, 0x23, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69}, decoded: &testExtensionType{data: []byte("hihihihi")}},
+	// - fixext 16
+	{encoded: []byte{0xd8, 0x23, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69, 0x68, 0x69}, decoded: &testExtensionType{data: []byte("hihihihihihihihi")}},
+	// TODO: test as a map key (unsupported).
+}
+
+func TestUnmarshal_applicationExtensions(t *testing.T) {
+	opts := &UnmarshalOptions{
+		ApplicationExtensions: map[int]UnmarshalExtensionTypeFn{
+			// 34: just unmarshals to a string.
+			34: func(data []byte) (any, bool, error) {
+				return string(data), true, nil
+			},
+			// 35: unmarshals to a *testExtensionType.
+			35: func(data []byte) (any, bool, error) {
+				return &testExtensionType{data: data}, false, nil
+			},
+		},
+	}
+	testUnmarshal(t, opts, commonUnmarshalTestCases)
+	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
+	testUnmarshal(t, opts, applicationExtensionsUnmarshalTestCases)
+}

@@ -93,7 +93,8 @@ type UnmarshalOptions struct {
 	ApplicationExtensions map[int]UnmarshalExtensionTypeFn
 }
 
-// An UnmarshalExtensionTypeFn unmarshals the given data for a (fixed, known) extension type.
+// An UnmarshalExtensionTypeFn unmarshals the given data for a (fixed, known) extension type. It may
+// keep a reference to the data (i.e., it need not copy it).
 //
 // It either returns an error, or on success the object and a boolean indicating if the value is a
 // valid map key (for a map[any]any).
