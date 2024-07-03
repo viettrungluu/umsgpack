@@ -19,7 +19,11 @@ import (
 // This may be suppressed by setting the DisableDuplicateKeyError option.
 var DuplicateKeyError = errors.New("Duplicate key")
 
-// TODO: Add UnsupportedKeyTypeError.
+// UnsupportedKeyTypeError is the error returned if data for a map includes a key of unsupported
+// type (for a map key).
+//
+// This may be suppressed by setting the DisableUnsupportedKeyTypeError.
+var UnsupportedKeyTypeError = errors.New("Unsupported key type")
 
 // UnsupportedExtensionTypeError is the error optionally returned if Unmarshal encounters an unknown
 // extension type.
@@ -64,15 +68,24 @@ func UnmarshalBytes(opts *UnmarshalOptions, data []byte) (any, error) {
 // UnmarshalOptions specifies options for Unmarshal.
 type UnmarshalOptions struct {
 	// If DisableDuplicateKeyError is set, then DuplicateKeyErrors will not be returned.
+	// Instead, the *first* key-value pair for the given key will "win".
 	//
-	// The default is false (to return such errors), since inconsistencies across unmarshallers
-	// could lead to security problems.
+	// The default is to return such errors since inconsistencies across unmarshallers could
+	// lead to security problems.
 	DisableDuplicateKeyError bool
 
-	// TODO: Add EnableUnsupportedKeyTypeError.
+	// If DisableUnsupportedKeyTypeError is set, then UnsupportedKeyTypeErrors will not be
+	// returned. Instead, the key-value pair will be "dropped".
+	//
+	// The default is to return such errors since inconsistencies across unmarshallers could
+	// lead to security problems.
+	DisableUnsupportedKeyTypeError bool
 
 	// If EnableUnsupportedExtensionTypeError is set, then UnsupportedExtensionTypeErrors will
 	// be returned if an unsupported extension type is encountered.
+	//
+	// The default is to not return errors, since unsupported extension objects will be
+	// unmarshalled/preserved faithfully as *UnresolvedExtensionTypes.
 	EnableUnsupportedExtensionTypeError bool
 
 	// ApplicationExtensions is a map from any application-specific extension types (0-127) to
@@ -326,18 +339,12 @@ func (u *unmarshaller) unmarshalFloat64() (float64, bool, error) {
 func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 	rv := map[any]any{}
 	for i := uint(0); i < n; i += 1 {
+		// Always try to unmarshal both the key and value even if we're going to return a
+		// higher-level error (duplicate key or unsupported key type) -- because if we
+		// ignore the error, then we need to "advance" our position properly.
 		key, mapKeySupported, err := u.unmarshalObject()
 		if err != nil {
 			return nil, false, err
-		}
-		if !mapKeySupported {
-			// TODO: Return an error if option set.
-			continue
-		}
-		if !u.opts.DisableDuplicateKeyError {
-			if _, alreadyPresent := rv[key]; alreadyPresent {
-				return nil, false, DuplicateKeyError
-			}
 		}
 
 		value, _, err := u.unmarshalObject()
@@ -345,7 +352,18 @@ func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 			return nil, false, err
 		}
 
-		rv[key] = value
+		if _, alreadyPresent := rv[key]; alreadyPresent {
+			if !u.opts.DisableDuplicateKeyError {
+				return nil, false, DuplicateKeyError
+			}
+			// Else let the first one win.
+		} else if !mapKeySupported {
+			if !u.opts.DisableUnsupportedKeyTypeError {
+				return nil, false, UnsupportedKeyTypeError
+			}
+		} else {
+			rv[key] = value
+		}
 	}
 	return rv, false, nil
 }
