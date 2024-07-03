@@ -14,15 +14,16 @@ import (
 
 // Errors ------------------------------------------------------------------------------------------
 
-// DuplicateKeyError is the error returned if data for a map has duplicate keys.
+// DuplicateKeyError is the error returned if Unmarshal encounters data for a map with duplicate
+// keys.
 //
 // This may be suppressed by setting the DisableDuplicateKeyError option.
 var DuplicateKeyError = errors.New("Duplicate key")
 
-// UnsupportedKeyTypeError is the error returned if data for a map includes a key of unsupported
-// type (for a map key).
+// UnsupportedKeyTypeError is the error returned if Unmarshal encounters data for a map with a key
+// of unsupported type (for a map[any]any key).
 //
-// This may be suppressed by setting the DisableUnsupportedKeyTypeError.
+// This may be suppressed by setting the DisableUnsupportedKeyTypeError option.
 var UnsupportedKeyTypeError = errors.New("Unsupported key type")
 
 // UnsupportedExtensionTypeError is the error optionally returned if Unmarshal encounters an unknown
@@ -31,7 +32,7 @@ var UnsupportedKeyTypeError = errors.New("Unsupported key type")
 // This is only returned if the EnableUnsupportedExtensionTypeError option is set.
 var UnsupportedExtensionTypeError = errors.New("Unsupported extension type")
 
-// InvalidFormatError is the error returned if an invalid format (0xc1) is encountered.
+// InvalidFormatError is the error returned if Unmarshal encounters an invalid format (0xc1).
 var InvalidFormatError = errors.New("Invalid format")
 
 // Unmarshal ---------------------------------------------------------------------------------------
