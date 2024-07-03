@@ -343,35 +343,65 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 		{encoded: []byte{0xc7, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc7, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc7, 0xff, 0x7f}, fillerBytes(255)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(255)}},
-		// TODO: test errors.
+		{encoded: []byte{0xc7}, err: io.EOF},
+		{encoded: []byte{0xc7, 0x01}, err: io.EOF},
+		{encoded: []byte{0xc7, 0x01, 0x00}, err: io.EOF},
+		{encoded: []byte{0xc7, 0x02, 0x00, 0x42}, err: io.ErrUnexpectedEOF},
+		{encoded: append([]byte{0xc7, 0xff, 0x00}, fillerBytes(254)...), err: io.ErrUnexpectedEOF},
 		// - ext 16:
 		{encoded: []byte{0xc8, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc8, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc8, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc8, 0xff, 0xff, 0x7f}, fillerBytes(65535)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(65535)}},
-		// TODO: test errors.
+		{encoded: []byte{0xc8}, err: io.EOF},
+		{encoded: []byte{0xc8, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xc8, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xc8, 0x00, 0x01, 0x00}, err: io.EOF},
+		{encoded: []byte{0xc8, 0x00, 0x02, 0x00, 0x42}, err: io.ErrUnexpectedEOF},
+		{encoded: append([]byte{0xc8, 0xff, 0xff, 0x00}, fillerBytes(65534)...), err: io.ErrUnexpectedEOF},
 		// - ext 32:
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x00, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 7, Data: []byte{}}},
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x01, 0x00, 0x42}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0x42}}},
 		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x02, 0x80, 0x42, 0x43}, decoded: &UnresolvedExtensionType{ExtensionType: -128, Data: []byte{0x42, 0x43}}},
 		{encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0xa0, 0x7f}, fillerBytes(100000)...), decoded: &UnresolvedExtensionType{ExtensionType: 127, Data: fillerBytes(100000)}},
-		// TODO: test errors.
+		{encoded: []byte{0xc9}, err: io.EOF},
+		{encoded: []byte{0xc9, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xc9, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xc9, 0x00, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x01}, err: io.EOF},
+		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x01, 0x00}, err: io.EOF},
+		{encoded: []byte{0xc9, 0x00, 0x00, 0x00, 0x02, 0x00, 0x42}, err: io.ErrUnexpectedEOF},
+		{encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0xa0, 0x00}, fillerBytes(99999)...), err: io.ErrUnexpectedEOF},
 		// - fixext 1
 		{encoded: []byte{0xd4, 0x00, 0x00}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0}}},
-		// TODO: test errors.
+		{encoded: []byte{0xd4}, err: io.EOF},
+		{encoded: []byte{0xd4, 0x00}, err: io.EOF},
 		// - fixext 2
 		{encoded: []byte{0xd5, 0x00, 0x00, 0x01}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1}}},
-		// TODO: test errors.
+		{encoded: []byte{0xd5}, err: io.EOF},
+		{encoded: []byte{0xd5, 0x00}, err: io.EOF},
+		{encoded: []byte{0xd5, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 		// - fixext 4
 		{encoded: []byte{0xd6, 0x00, 0x00, 0x01, 0x02, 0x03}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3}}},
-		// TODO: test errors.
+		{encoded: []byte{0xd6}, err: io.EOF},
+		{encoded: []byte{0xd6, 0x00}, err: io.EOF},
+		{encoded: []byte{0xd6, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xd6, 0x00, 0x00, 0x01, 0x02}, err: io.ErrUnexpectedEOF},
 		// - fixext 8
 		{encoded: []byte{0xd7, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7}}},
-		// TODO: test errors.
+		{encoded: []byte{0xd7}, err: io.EOF},
+		{encoded: []byte{0xd7, 0x00}, err: io.EOF},
+		{encoded: []byte{0xd7, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xd7, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06}, err: io.ErrUnexpectedEOF},
 		// - fixext 16
 		{encoded: []byte{0xd8, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}, decoded: &UnresolvedExtensionType{ExtensionType: 0, Data: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}}},
-		// TODO: test errors.
+		{encoded: []byte{0xd8}, err: io.EOF},
+		{encoded: []byte{0xd8, 0x00}, err: io.EOF},
+		{encoded: []byte{0xd8, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
+		{encoded: []byte{0xd8, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e}, err: io.ErrUnexpectedEOF},
 		// TODO: test timestamp ext.
 	}
 	runTestCases(t, opts, tCs)
 }
+
+// TODO: test extensions, other opts.
