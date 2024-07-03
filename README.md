@@ -1,6 +1,7 @@
 # umsgpack
 
-A tiny (micro), simple implementation of MessagePack.
+A tiny (micro), simple implementation of [MessagePack](https://msgpack.org/)
+([specification](https://github.com/msgpack/msgpack/blob/master/spec.md)).
 
 ## Current status
 

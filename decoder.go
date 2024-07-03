@@ -44,6 +44,7 @@ var DefaultUnmarshalOptions = &UnmarshalOptions{}
 //   - []any for array
 //   - map[any]any for map
 //   - time.Time for timestamp (extension type -1)
+//   - other types per opts.ApplicationExtensions
 func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
 	if opts == nil {
 		opts = DefaultUnmarshalOptions
@@ -52,7 +53,7 @@ func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
 	return u.unmarshalObject()
 }
 
-// UnmarshalBytes is like Unmarshal, except taking
+// UnmarshalBytes is like Unmarshal, except taking byte data instead of an io.Reader.
 func UnmarshalBytes(opts *UnmarshalOptions, data []byte) (any, error) {
 	return Unmarshal(opts, bytes.NewBuffer(data))
 }
