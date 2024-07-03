@@ -352,15 +352,16 @@ func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 			return nil, false, err
 		}
 
-		if _, alreadyPresent := rv[key]; alreadyPresent {
-			if !u.opts.DisableDuplicateKeyError {
-				return nil, false, DuplicateKeyError
-			}
-			// Else let the first one win.
-		} else if !mapKeySupported {
+		if !mapKeySupported {
 			if !u.opts.DisableUnsupportedKeyTypeError {
 				return nil, false, UnsupportedKeyTypeError
 			}
+			// Else ignore this key-value pair.
+		} else if _, alreadyPresent := rv[key]; alreadyPresent {
+			if !u.opts.DisableDuplicateKeyError {
+				return nil, false, DuplicateKeyError
+			}
+			// Else let the first key-value pair with the same key win.
 		} else {
 			rv[key] = value
 		}
