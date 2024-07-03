@@ -463,7 +463,7 @@ func unmarshalTimestampExtensionType(data []byte) (any, bool, error) {
 		sec := int64(binary.BigEndian.Uint32(data))
 		return time.Unix(sec, 0), true, nil
 	case 8:
-		data64 := binary.BigEndian.Uint64(data[4:12])
+		data64 := binary.BigEndian.Uint64(data)
 		nsec := int64(data64 >> 34)
 		sec := int64(data64 & 0x00000003ffffffff)
 		if nsec >= 1_000_000_000 {
