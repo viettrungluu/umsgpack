@@ -5,7 +5,6 @@ package umsgpack
 
 import (
 	"bytes"
-	// "encoding/binary"
 	"errors"
 	"io"
 	"math"
@@ -90,9 +89,11 @@ func (m *marshaller) marshalObject(obj any) error {
 		return m.marshalUint64(v)
 	case uintptr:
 		return m.marshalUint64(uint64(v))
+	case float32:
+		return m.marshalFloat32(v)
+	case float64:
+		return m.marshalFloat64(v)
 		// TODO:
-		// case float32:
-		// case float64:
 		// case string:
 		// case []byte:
 		// case []any:
@@ -149,6 +150,20 @@ func (m *marshaller) marshalUint64(u uint64) error {
 	default: // uint 64: 11001111: 0xcf
 		return m.write(0xcf, byte((u>>56)&0xff), byte((u>>48)&0xff), byte((u>>40)&0xff), byte((u>>32)&0xff), byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
 	}
+}
+
+// marshalFloat32 marshals a float32.
+func (m *marshaller) marshalFloat32(f float32) error {
+	u := math.Float32bits(f)
+	// float 32: 11001010: 0xca
+	return m.write(0xca, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
+}
+
+// marshalFloat64 marshals a float64.
+func (m *marshaller) marshalFloat64(f float64) error {
+	u := math.Float64bits(f)
+	// float 64: 11001011: 0xcb
+	return m.write(0xcb, byte((u>>56)&0xff), byte((u>>48)&0xff), byte((u>>40)&0xff), byte((u>>32)&0xff), byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
 }
 
 // write is a helper for calling the io.Writer's Write.
