@@ -5,6 +5,7 @@ A tiny (micro), simple implementation of [MessagePack](https://msgpack.org/)
 
 ## Current status
 
+* CI status: ![CI status](https://github.com/viettrungluu/umsgpack/actions/workflows/go.yml/badge.svg)
 * Basic decoding (unmarshalling) is supported.
 * I still have to write more tests.
 * Possibly, it should also be able to decode maps to a target struct (type), instead of just to
