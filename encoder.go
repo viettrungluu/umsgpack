@@ -17,6 +17,10 @@ import (
 // type is unsupported for marshalling.
 var UnsupportedTypeForMarshallingError = errors.New("Unsupported type for marshalling")
 
+// ObjectTooBigForMarshallingError is the error returned if Marshal encounters an object that's too
+// big for marshalling (e.g., a string that's 2**32 bytes or longer).
+var ObjectTooBigForMarshallingError = errors.New("Object too big for marshalling")
+
 // Marshal -----------------------------------------------------------------------------------------
 
 var DefaultMarshalOptions = &MarshalOptions{}
@@ -93,8 +97,9 @@ func (m *marshaller) marshalObject(obj any) error {
 		return m.marshalFloat32(v)
 	case float64:
 		return m.marshalFloat64(v)
+	case string:
+		return m.marshalString(v)
 		// TODO:
-		// case string:
 		// case []byte:
 		// case []any:
 		// case map[any]any:
@@ -164,6 +169,35 @@ func (m *marshaller) marshalFloat64(f float64) error {
 	u := math.Float64bits(f)
 	// float 64: 11001011: 0xcb
 	return m.write(0xcb, byte((u>>56)&0xff), byte((u>>48)&0xff), byte((u>>40)&0xff), byte((u>>32)&0xff), byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
+}
+
+// marshalString marshals a string (in a minimal way).
+func (m *marshaller) marshalString(s string) error {
+	u := len(s)
+	switch {
+	case u <= (0xbf - 0xa0): // fixstr: 101xxxxx: 0xa0 - 0xbf
+		if err := m.write(byte(0xa0 + u)); err != nil {
+			return err
+		}
+		return m.write([]byte(s)...)
+	case u <= math.MaxUint8: // str 8: 11011001: 0xd9
+		if err := m.write(0xd9, byte(u&0xff)); err != nil {
+			return err
+		}
+		return m.write([]byte(s)...)
+	case u <= math.MaxUint16: // str 16: 11011010: 0xda
+		if err := m.write(0xda, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+		return m.write([]byte(s)...)
+	case u <= math.MaxUint32: // str 32: 11011011: 0xdb
+		if err := m.write(0xdb, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+		return m.write([]byte(s)...)
+	default:
+		return ObjectTooBigForMarshallingError
+	}
 }
 
 // write is a helper for calling the io.Writer's Write.

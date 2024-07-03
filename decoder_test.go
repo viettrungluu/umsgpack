@@ -18,6 +18,7 @@ import (
 )
 
 // fillerChars generates n filler characters in the pattern 012345678901234....
+// TODO: Move to a different file.
 func fillerChars(n int) []byte {
 	rv := make([]byte, n)
 	for i := 0; i < n; i += 1 {

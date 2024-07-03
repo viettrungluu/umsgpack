@@ -234,6 +234,21 @@ var commonMarshalTestCases = []marshalTestCase{
 	{obj: math.Inf(1), encoded: []byte{0xcb, 0x7f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
 	{obj: float64(-1), encoded: []byte{0xcb, 0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
 	{obj: math.Inf(-1), encoded: []byte{0xcb, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+	// *** string
+	// fixstr: 101xxxxx: 0xa0 - 0xbf
+	{obj: "", encoded: []byte{0xa0}},
+	{obj: "h", encoded: []byte{0xa1, 0x68}},
+	{obj: "hi", encoded: []byte{0xa2, 0x68, 0x69}},
+	{obj: string(fillerChars(31)), encoded: append([]byte{0xbf}, fillerChars(31)...)},
+	// str 8: 11011001: 0xd9
+	{obj: string(fillerChars(32)), encoded: append([]byte{0xd9, 0x20}, fillerChars(32)...)},
+	{obj: string(fillerChars(0xff)), encoded: append([]byte{0xd9, 0xff}, fillerChars(0xff)...)},
+	// str 16: 11011010: 0xda
+	{obj: string(fillerChars(0x100)), encoded: append([]byte{0xda, 0x01, 0x00}, fillerChars(0x100)...)},
+	{obj: string(fillerChars(0xffff)), encoded: append([]byte{0xda, 0xff, 0xff}, fillerChars(0xffff)...)},
+	// str 32: 11011011: 0xdb
+	{obj: string(fillerChars(0x10000)), encoded: append([]byte{0xdb, 0x00, 0x01, 0x00, 0x00}, fillerChars(0x10000)...)},
+	{obj: string(fillerChars(99999)), encoded: append([]byte{0xdb, 0x00, 0x01, 0x86, 0x9f}, fillerChars(99999)...)},
 }
 
 // TestMarshal_defaultOpts tests Marshal with the default options (all boolean options are false).
