@@ -132,7 +132,7 @@ func (m *marshaller) marshalInt64(i int64) error {
 	case i >= math.MinInt32 && i <= math.MaxInt32: // int 32: 11010010: 0xd2
 		return m.write(0xd2, byte((i>>24)&0xff), byte((i>>16)&0xff), byte((i>>8)&0xff), byte(i&0xff))
 	default: // int 64: 11010011: 0xd3
-		return m.write(0xd2, byte((i>>56)&0xff), byte((i>>48)&0xff), byte((i>>40)&0xff), byte((i>>32)&0xff), byte((i>>24)&0xff), byte((i>>16)&0xff), byte((i>>8)&0xff), byte(i&0xff))
+		return m.write(0xd3, byte((i>>56)&0xff), byte((i>>48)&0xff), byte((i>>40)&0xff), byte((i>>32)&0xff), byte((i>>24)&0xff), byte((i>>16)&0xff), byte((i>>8)&0xff), byte(i&0xff))
 	}
 }
 
