@@ -310,3 +310,5 @@ func TestMarshal_defaultOpts(t *testing.T) {
 	testMarshal(t, opts, commonMarshalTestCases)
 	// TODO: testMarshal(t, opts, defaultOptsMarshalTestCases)
 }
+
+// TODO: test application extension types.

@@ -51,7 +51,7 @@ var DefaultUnmarshalOptions = &UnmarshalOptions{}
 //   - []any for array
 //   - map[any]any for map
 //   - time.Time for timestamp (extension type -1)
-//   - other types per opts.ApplicationExtensions
+//   - other types per opts.ApplicationUnmarshalExtensions
 func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
 	if opts == nil {
 		opts = DefaultUnmarshalOptions
@@ -89,9 +89,9 @@ type UnmarshalOptions struct {
 	// unmarshalled/preserved faithfully as *UnresolvedExtensionTypes.
 	EnableUnsupportedExtensionTypeError bool
 
-	// ApplicationExtensions is a map from any application-specific extension types (0-127) to
-	// the corresponding UnmarshalExtensionTypeFn.
-	ApplicationExtensions map[int]UnmarshalExtensionTypeFn
+	// ApplicationUnmarshalExtensions is a map from any application-specific extension types
+	// (0-127) to the corresponding UnmarshalExtensionTypeFn.
+	ApplicationUnmarshalExtensions map[int]UnmarshalExtensionTypeFn
 }
 
 // An UnmarshalExtensionTypeFn unmarshals the given data for a (fixed, known) extension type. It may
@@ -434,9 +434,9 @@ func (u *unmarshaller) resolveExtensionType(extensionType int, data []byte) (any
 // any.
 func (u *unmarshaller) getUnmarshalExtensionTypeFn(extensionType int) UnmarshalExtensionTypeFn {
 	if extensionType < 0 {
-		return standardExtensions[extensionType]
+		return standardUnmarshalExtensions[extensionType]
 	} else {
-		return u.opts.ApplicationExtensions[extensionType]
+		return u.opts.ApplicationUnmarshalExtensions[extensionType]
 	}
 }
 
@@ -449,8 +449,9 @@ func (u *unmarshaller) readByte() (byte, error) {
 
 // Standard extensions -----------------------------------------------------------------------------
 
-// standardExtensions maps (standard) extension types to the corresponding UnmarshalExtensionTypeFn.
-var standardExtensions = map[int]UnmarshalExtensionTypeFn{
+// standardUnmarshalExtensions maps (standard) extension types to the corresponding
+// UnmarshalExtensionTypeFn.
+var standardUnmarshalExtensions = map[int]UnmarshalExtensionTypeFn{
 	-1: unmarshalTimestampExtensionType,
 }
 

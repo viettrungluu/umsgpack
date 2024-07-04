@@ -21,6 +21,10 @@ var UnsupportedTypeForMarshallingError = errors.New("Unsupported type for marsha
 // big for marshalling (e.g., a string that's 2**32 bytes or longer).
 var ObjectTooBigForMarshallingError = errors.New("Object too big for marshalling")
 
+// FunctionDoesNotApply is a pseudo-error used to signal that a function does not apply.
+// TODO
+var FunctionDoesNotApply = errors.New("Function does not apply")
+
 // Marshal -----------------------------------------------------------------------------------------
 
 var DefaultMarshalOptions = &MarshalOptions{}
@@ -47,8 +51,22 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// TODO
+	// ApplicationMarshalExtensions is an array of application-specific extension type
+	// marshallers, which will be applied in order.
+	ApplicationMarshalExtensions []MarshalToExtensionTypeFn
 }
+
+// A MarshalToExtensionTypeFn marshals the given object as an extension type.
+//
+// If the function does not apply, it should return FunctionDoesNotApply.
+//
+// If it does apply, it should return the extension type (0-127, for application extensions; Marshal
+// will panic if this is not the case). It may also return an error in this case, if it does/should
+// apply but runs into some other problem.
+//
+// It may determine applicability however it wants (e.g., based on type, on reflection, or on
+// nothing at all).
+type MarshalToExtensionTypeFn func(obj any) (int, []byte, error)
 
 // Marshaller --------------------------------------------------------------------------------------
 
@@ -60,10 +78,6 @@ type marshaller struct {
 
 // marshalObject marshals an object.
 func (m *marshaller) marshalObject(obj any) error {
-	// TODO: Support custom marshalling: via an interface or via a function (we want to support
-	// both; an interface works well for types owned by the caller, while a function works for
-	// "third-party" types).
-
 	if obj == nil {
 		return m.marshalNil()
 	}
@@ -106,10 +120,26 @@ func (m *marshaller) marshalObject(obj any) error {
 	case map[any]any:
 		return m.marshalMap(v)
 	}
-	// TODO: Other arrays and maps? And structs? (I suppose we have to use reflect.)
 
-	// TODO
-	return errors.New("Not yet implemented!")
+	for _, extFn := range m.opts.ApplicationMarshalExtensions {
+		extensionType, extensionData, err := extFn(obj)
+		if err == FunctionDoesNotApply {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if extensionType < 0 || extensionType > 127 {
+			panic("Invalid application extension type")
+		}
+		return m.marshalExtensionType(extensionType, extensionData)
+	}
+
+	// TODO: standard extensions.
+
+	// TODO: transformers.
+
+	return UnsupportedTypeForMarshallingError
 }
 
 // marshalNil marshals a nil.
@@ -276,6 +306,51 @@ func (m *marshaller) marshalMap(kvs map[any]any) error {
 		}
 	}
 	return nil
+}
+
+// marshalExtensionType marshals an extension type (in a minimal way).
+func (m *marshaller) marshalExtensionType(extType int, extData []byte) error {
+	u := len(extData)
+	switch {
+	case u == 1: // fixext 1: 11010100: 0xd4
+		if err := m.write(0xd4); err != nil {
+			return err
+		}
+	case u == 2: // fixext 2: 11010101: 0xd5
+		if err := m.write(0xd5); err != nil {
+			return err
+		}
+	case u == 4: // fixext 4: 11010110: 0xd6
+		if err := m.write(0xd6); err != nil {
+			return err
+		}
+	case u == 8: // fixext 8: 11010111: 0xd7
+		if err := m.write(0xd7); err != nil {
+			return err
+		}
+	case u == 16: // fixext 16: 11011000: 0xd8
+		if err := m.write(0xd8); err != nil {
+			return err
+		}
+	case u <= math.MaxUint8: // ext 8: 11000111: 0xc7
+		if err := m.write(0xc7, byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint16: // ext 16: 11001000: 0xc8
+		if err := m.write(0xc8, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint32: // ext 32: 11001001: 0xc9
+		if err := m.write(0xc9, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	default:
+		return ObjectTooBigForMarshallingError
+	}
+	if err := m.write(byte(extType)); err != nil {
+		return err
+	}
+	return m.write(extData...)
 }
 
 // write is a helper for calling the io.Writer's Write.

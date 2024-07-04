@@ -558,7 +558,7 @@ var applicationExtensionsUnmarshalTestCases = []unmarshalTestCase{
 
 func TestUnmarshal_applicationExtensions(t *testing.T) {
 	opts := &UnmarshalOptions{
-		ApplicationExtensions: map[int]UnmarshalExtensionTypeFn{
+		ApplicationUnmarshalExtensions: map[int]UnmarshalExtensionTypeFn{
 			// 34: just unmarshals to a string.
 			34: func(data []byte) (any, bool, error) {
 				return string(data), true, nil
