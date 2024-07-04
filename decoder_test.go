@@ -59,7 +59,8 @@ func genArray(n int) []any {
 	return rv
 }
 
-// genMapData generates test map data with n key-value pairs.
+// genMapData generates test map (encoded) data with n key-value pairs; matches genMap.
+// TODO: Move to a different file.
 func genMapData(n int) []byte {
 	rv := []byte{}
 	for i := 0; i < n; i += 1 {
@@ -67,12 +68,17 @@ func genMapData(n int) []byte {
 		rv = append(rv, byte(0xa0+len(s)))
 		rv = append(rv, []byte(s)...)
 		j := i % 10000
-		rv = append(rv, 0xd1, byte(j>>8), byte(j))
+		if j <= 0x7f {
+			rv = append(rv, byte(j)) // positive fixint
+		} else {
+			rv = append(rv, 0xd1, byte(j>>8), byte(j)) // int 16
+		}
 	}
 	return rv
 }
 
-// genMap generates test map with n key-value pairs.
+// genMap generates test map with n key-value pairs; matches genMapData.
+// TODO: Move to a different file.
 func genMap(n int) map[any]any {
 	rv := map[any]any{}
 	for i := 0; i < n; i += 1 {

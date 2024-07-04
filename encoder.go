@@ -103,9 +103,10 @@ func (m *marshaller) marshalObject(obj any) error {
 		return m.marshalBytes(v)
 	case []any:
 		return m.marshalArray(v)
-		// case map[any]any:
-		// TODO: other arrays and maps? and structs?
+	case map[any]any:
+		return m.marshalMap(v)
 	}
+	// TODO: Other arrays and maps? And structs? (I suppose we have to use reflect.)
 
 	// TODO
 	return errors.New("Not yet implemented!")
@@ -240,6 +241,36 @@ func (m *marshaller) marshalArray(a []any) error {
 		return ObjectTooBigForMarshallingError
 	}
 	for _, v := range a {
+		if err := m.marshalObject(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// marshalMap marshals a map[any]any (in a minimal way).
+func (m *marshaller) marshalMap(kvs map[any]any) error {
+	u := len(kvs)
+	switch {
+	case u <= (0x8f - 0x80): // fixmap: 1000xxxx: 0x80 - 0x8f
+		if err := m.write(byte(0x80 + u)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint16: // map 16: 11011110: 0xde
+		if err := m.write(0xde, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint32: // map 32: 11011111: 0xdf
+		if err := m.write(0xdf, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	default:
+		return ObjectTooBigForMarshallingError
+	}
+	for k, v := range kvs {
+		if err := m.marshalObject(k); err != nil {
+			return err
+		}
 		if err := m.marshalObject(v); err != nil {
 			return err
 		}

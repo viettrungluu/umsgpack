@@ -9,7 +9,7 @@ import (
 	"bytes"
 	// "io"
 	"math"
-	// "reflect"
+	"reflect"
 	// "strconv"
 	"testing"
 	// "time"
@@ -18,11 +18,14 @@ import (
 )
 
 // A marshalTestCase defines a test case for marshalling: the original object and the expected
-// encoded bytes or the expected error.
+// encoded bytes or the expected error. If prefix is true, then encoded is just a prefix to be
+// checked; the actual encoded data is the checked by unmarshalling. (This is to support testing
+// map marshalling, since Go's map iteration order is not deterministic.)
 type marshalTestCase struct {
 	obj     any
 	encoded []byte
 	err     error
+	prefix  bool
 }
 
 // testMarshal is a helper for testing Marshal with the given options for the given test cases.
@@ -31,8 +34,22 @@ func testMarshal(t *testing.T, opts *MarshalOptions, tCs []marshalTestCase) {
 		buf := &bytes.Buffer{}
 		if actualErr := Marshal(opts, buf, tC.obj); actualErr != tC.err {
 			t.Errorf("unexected error for obj=%#v (encoded=%q, err=%v): actualErr=%v", tC.obj, tC.encoded, tC.err, actualErr)
-		} else if tC.err == nil && bytes.Compare(buf.Bytes(), tC.encoded) != 0 {
-			t.Errorf("unexected result for obj=%#v (encoded=%q): actualEncoded=%q", tC.obj, tC.encoded, buf.Bytes())
+		} else if tC.err == nil {
+			if tC.prefix {
+				if bytes.Compare(buf.Bytes()[:len(tC.encoded)], tC.encoded) != 0 {
+					t.Errorf("unexected result for obj=%#v (encoded_prefix=%q): actualEncoded=%q", tC.obj, tC.encoded, buf.Bytes())
+				} else {
+					if decoded, err := UnmarshalBytes(nil, buf.Bytes()); err != nil {
+						t.Errorf("unmarshal failed for obj=%#v (err=%v): actualEncoded=%q", tC.obj, err, buf.Bytes())
+					} else if !reflect.DeepEqual(decoded, tC.obj) {
+						t.Errorf("unmarshal output did not match for obj=%#v: decodedObj=%#v", tC.obj, decoded)
+					}
+				}
+			} else {
+				if bytes.Compare(buf.Bytes(), tC.encoded) != 0 {
+					t.Errorf("unexected result for obj=%#v (encoded=%q): actualEncoded=%q", tC.obj, tC.encoded, buf.Bytes())
+				}
+			}
 		}
 	}
 }
@@ -273,6 +290,19 @@ var commonMarshalTestCases = []marshalTestCase{
 	// array 32: 11011101: 0xdd
 	{obj: genArray(0x10000), encoded: append([]byte{0xdd, 0x00, 0x01, 0x00, 0x00}, genArrayData(0x10000)...)},
 	{obj: genArray(99999), encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0x9f}, genArrayData(99999)...)},
+	// *** map[any]any
+	// fixmap: 1000xxxx: 0x80 - 0x8f
+	{obj: map[any]any{}, encoded: []byte{0x80}},
+	{obj: genMap(1), encoded: append([]byte{0x81}, genMapData(1)...)},
+	{obj: genMap(2), encoded: []byte{0x82}, prefix: true},
+	{obj: genMap(0xf), encoded: []byte{0x8f}, prefix: true},
+	// map 16: 11011110: 0xde
+	{obj: genMap(0x10), encoded: []byte{0xde, 0x00, 0x10}, prefix: true},
+	{obj: genMap(0xffff), encoded: []byte{0xde, 0xff, 0xff}, prefix: true},
+	// map 32: 11011111: 0xdf
+	{obj: genMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true},
+	{obj: genMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true},
+	// TODO: test error cases (mostly write failing).
 }
 
 // TestMarshal_defaultOpts tests Marshal with the default options (all boolean options are false).
