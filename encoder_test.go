@@ -301,6 +301,7 @@ var commonMarshalTestCases = []marshalTestCase{
 	// map 32: 11011111: 0xdf
 	{obj: genMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true},
 	{obj: genMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true},
+	// TODO: test timestamp ext.
 	// TODO: test error cases (mostly write failing).
 }
 

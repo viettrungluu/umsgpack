@@ -8,7 +8,7 @@ import (
 	"errors"
 	"io"
 	"math"
-	// "time"
+	"time"
 )
 
 // Errors ------------------------------------------------------------------------------------------
@@ -134,8 +134,19 @@ func (m *marshaller) marshalObject(obj any) error {
 		}
 		return m.marshalExtensionType(extensionType, extensionData)
 	}
-
-	// TODO: standard extensions.
+	for _, extFn := range standardMarshalExtensions {
+		extensionType, extensionData, err := extFn(obj)
+		if err == FunctionDoesNotApply {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if extensionType < -128 || extensionType >= 0 {
+			panic("Invalid standard extension type")
+		}
+		return m.marshalExtensionType(extensionType, extensionData)
+	}
 
 	// TODO: transformers.
 
@@ -357,4 +368,38 @@ func (m *marshaller) marshalExtensionType(extType int, extData []byte) error {
 func (m *marshaller) write(data ...byte) error {
 	_, err := m.w.Write(data)
 	return err
+}
+
+// Standard extensions -----------------------------------------------------------------------------
+
+// standardMarshalExtensions is an array of (standard) MarshalToExtensionTypeFn.
+var standardMarshalExtensions = []MarshalToExtensionTypeFn{
+	marshalToTimestampExtensionType,
+}
+
+// marshalTimestampExtensionType is a MarshalToExtensionTypeFn that marshals time.Time to the
+// standard (-1) timestamp extension type (in a minimal way).
+func marshalToTimestampExtensionType(obj any) (int, []byte, error) {
+	t, ok := obj.(time.Time)
+	if !ok {
+		return 0, nil, FunctionDoesNotApply
+	}
+
+	sec := t.Unix()
+	nsec := t.Nanosecond()
+	if sec >= 0 {
+		if nsec == 0 && sec <= math.MaxUint32 {
+			// timestamp 32
+			return -1, []byte{byte((sec >> 24) & 0xff), byte((sec >> 16) & 0xff), byte((sec >> 8) & 0xff), byte(sec & 0xff)}, nil
+		}
+
+		if sec < (1 << 34) {
+			// timestamp 64
+			u := uint64(sec) | (uint64(nsec) << 34)
+			return -1, []byte{byte((u >> 56) & 0xff), byte((u >> 48) & 0xff), byte((u >> 40) & 0xff), byte((u >> 32) & 0xff), byte((u >> 24) & 0xff), byte((u >> 16) & 0xff), byte((u >> 8) & 0xff), byte(u & 0xff)}, nil
+		}
+	}
+
+	// timestamp 96
+	return -1, []byte{byte((nsec >> 24) & 0xff), byte((nsec >> 16) & 0xff), byte((nsec >> 8) & 0xff), byte(nsec & 0xff), byte((sec >> 56) & 0xff), byte((sec >> 48) & 0xff), byte((sec >> 40) & 0xff), byte((sec >> 32) & 0xff), byte((sec >> 24) & 0xff), byte((sec >> 16) & 0xff), byte((sec >> 8) & 0xff), byte(sec & 0xff)}, nil
 }

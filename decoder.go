@@ -462,10 +462,10 @@ var InvalidTimestampError = errors.New("Invalid timestamp")
 // timestamp extension type.
 func unmarshalTimestampExtensionType(data []byte) (any, bool, error) {
 	switch len(data) {
-	case 4:
+	case 4: // timestamp 32
 		sec := int64(binary.BigEndian.Uint32(data))
 		return time.Unix(sec, 0), true, nil
-	case 8:
+	case 8: // timestamp 64
 		data64 := binary.BigEndian.Uint64(data)
 		nsec := int64(data64 >> 34)
 		sec := int64(data64 & 0x00000003ffffffff)
@@ -473,7 +473,7 @@ func unmarshalTimestampExtensionType(data []byte) (any, bool, error) {
 			return nil, false, InvalidTimestampError
 		}
 		return time.Unix(sec, nsec), true, nil
-	case 12:
+	case 12: // timestamp 96
 		nsec := int64(binary.BigEndian.Uint32(data[0:4]))
 		sec := int64(binary.BigEndian.Uint64(data[4:12]))
 		if nsec >= 1_000_000_000 {
