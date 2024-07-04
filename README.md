@@ -3,7 +3,7 @@
 A tiny (micro), simple implementation of [MessagePack](https://msgpack.org/)
 ([specification](https://github.com/msgpack/msgpack/blob/master/spec.md)).
 
-## Unmarshalling philosophy
+## Unmarshalling design
 
 umsgpack unmarshals to weakly-typed data (e.g., MessagePack maps are unmarshalled as `map[any]any`).
 This is especially useful if you frequently have to consume data originating from weakly-typed
@@ -29,6 +29,31 @@ strong type based on `type`. It's hard to design/build an unmarshaller that hand
 variadic-type situations simply, much less efficiently. (E.g., one complication is that in the input
 stream the data for the `type` need not precede the data for `data`.)
 
+## Marshalling design (WIP)
+
+An object is marshalled in the following order (the process terminates when the object is
+marshalled):
+* First, if an object is a supported built-in type, then it marshalled as such.
+* Next, the object is marshalled as an application extension type, if applicable.
+* Then, the object is marshalled as a standard extension type, if applicable. (Doing application
+  extensions before allows applications to override the built-in serialization of `time.Time`.)
+* Finally, *transformers* are attempted, in order. On the first transformer that applies, all of the
+  above is repeated on the transformed object (but transformers are not re-attempted, to avoid
+  infinite loops).
+  * If no transformer applies, then marshalling the object is not supported.
+  * If a transformer applies, but the transformed object cannot be marshalled (without applying
+    transformers), then marshalling the object is not supported.
+(The above is applied recursively for container objects when required.)
+
+A transformer is a function that either returns a new, transformed object or indicates that it does
+not applies.
+
+TODO: examples (arrays, maps, structs)
+
+It might be more logical to apply transformers first, and not have to repeat the marshalling process
+(minus transformers). However, I expect applying transformers to possibly be slow, since it often
+involves reflection.
+
 ## Current status
 
 * ![umsgpack build and test status](https://github.com/viettrungluu/umsgpack/actions/workflows/go.yml/badge.svg)
@@ -41,3 +66,4 @@ stream the data for the `type` need not precede the data for `data`.)
   * Nor are other custom serializations (e.g., to serialize some value as a different value).
   * Ergonomic encoding of arrays (other than `[]any`), maps (other than `map[any]any`), and structs
     is not yet supported.
+  * Testing of failures/errors is very incomplete.
