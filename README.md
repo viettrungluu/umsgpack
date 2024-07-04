@@ -33,7 +33,11 @@ stream the data for the `type` need not precede the data for `data`.)
 
 * ![umsgpack build and test status](https://github.com/viettrungluu/umsgpack/actions/workflows/go.yml/badge.svg)
 * Decoding (unmarshalling) is supported.
-* Possibly, it should also be able to decode maps to a target struct (type), instead of just to
-  maps. (This would require a different interface, and require reflection, so would be done
-  separately in any case.)
-* Encoding (marshalling) is not yet supported.
+  * Possibly, it should also be able to decode maps to a target struct (type), instead of just to
+    maps. (This would require a different interface, and require reflection, so would be done
+    separately in any case.)
+* Basic encoding (marshalling) is supported.
+  * Extensions (including timestamps) are not yet supported.
+  * Nor are other custom serializations (e.g., to serialize some value as a different value).
+  * Ergonomic encoding of arrays (other than `[]any`), maps (other than `map[any]any`), and structs
+    is not yet supported.
