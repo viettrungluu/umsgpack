@@ -10,82 +10,11 @@ import (
 	"io"
 	"math"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
 	. "github.com/viettrungluu/umsgpack"
 )
-
-// fillerChars generates n filler characters in the pattern 012345678901234....
-// TODO: Move to a different file.
-func fillerChars(n int) []byte {
-	rv := make([]byte, n)
-	for i := 0; i < n; i += 1 {
-		rv[i] = byte('0' + i%10)
-	}
-	return rv
-}
-
-// fillerBytes generates n filler bytes in the pattern 0, 1, 2, ..., 255, 0, 1, ....
-// TODO: Move to a different file.
-func fillerBytes(n int) []byte {
-	rv := make([]byte, n)
-	for i := 0; i < n; i += 1 {
-		rv[i] = byte(i % 256)
-	}
-	return rv
-}
-
-// genArrayData generates test array (encoded) data with n entries; matches genArray.
-// TODO: Move to a different file.
-func genArrayData(n int) []byte {
-	rv := []byte{}
-	for i := 0; i < n; i += 1 {
-		s := strconv.Itoa(i)
-		rv = append(rv, byte(0xa0+len(s)))
-		rv = append(rv, []byte(s)...)
-	}
-	return rv
-}
-
-// genArray generates a test array with n entries; matches genArrayData.
-// TODO: Move to a different file.
-func genArray(n int) []any {
-	rv := []any{}
-	for i := 0; i < n; i += 1 {
-		rv = append(rv, strconv.Itoa(i))
-	}
-	return rv
-}
-
-// genMapData generates test map (encoded) data with n key-value pairs; matches genMap.
-// TODO: Move to a different file.
-func genMapData(n int) []byte {
-	rv := []byte{}
-	for i := 0; i < n; i += 1 {
-		s := strconv.Itoa(i)
-		rv = append(rv, byte(0xa0+len(s)))
-		rv = append(rv, []byte(s)...)
-		j := i % 10000
-		if j <= 0x7f {
-			rv = append(rv, byte(j)) // positive fixint
-		} else {
-			rv = append(rv, 0xd1, byte(j>>8), byte(j)) // int 16
-		}
-	}
-	return rv
-}
-
-// genMap generates test map with n key-value pairs; matches genMapData.
-// TODO: Move to a different file.
-func genMap(n int) map[any]any {
-	rv := map[any]any{}
-	for i := 0; i < n; i += 1 {
-		rv[strconv.Itoa(i)] = i % 10000
-	}
-	return rv
-}
 
 // An unmarshalTestCase defines a test case for unmarshalling: the encoded bytes and the expected
 // decoded result or the expected error.
