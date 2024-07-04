@@ -54,19 +54,34 @@ type MarshalOptions struct {
 	// ApplicationMarshalExtensions is an array of application-specific extension type
 	// marshallers, which will be applied in order.
 	ApplicationMarshalExtensions []MarshalToExtensionTypeFn
+
+	// ApplicationMarshalObjectTransformers is any array of application-specific transformers,
+	// which will be applied in order.
+	ApplicationMarshalObjectTransformers []MarshalObjectTransformerFn
 }
 
 // A MarshalToExtensionTypeFn marshals the given object as an extension type.
 //
 // If the function does not apply, it should return FunctionDoesNotApply.
 //
-// If it does apply, it should return the extension type (0-127, for application extensions; Marshal
-// will panic if this is not the case). It may also return an error in this case, if it does/should
-// apply but runs into some other problem.
+// If it applies, it should return the extension type (0-127, for application extensions; Marshal
+// will panic if this is not the case). It may also return an error if it does/should apply but runs
+// into some other problem.
 //
 // It may determine applicability however it wants (e.g., based on type, on reflection, or on
 // nothing at all).
 type MarshalToExtensionTypeFn func(obj any) (int, []byte, error)
+
+// A MarshalObjectTransformerFn transforms the given object (usually to a marshallable type).
+//
+// If the function does not apply, it should return FunctionDoesNotApply.
+//
+// If it applies, it should return the transformed object. It may also return an error if it
+// does/should apply but runs into some other problem.
+//
+// It may determine applicability however it wants (e.g., based on type, on reflection, or on
+// nothing at all).
+type MarshalObjectTransformerFn func(obj any) (any, error)
 
 // Marshaller --------------------------------------------------------------------------------------
 
@@ -78,6 +93,11 @@ type marshaller struct {
 
 // marshalObject marshals an object.
 func (m *marshaller) marshalObject(obj any) error {
+	return m.marshalObjectHelper(obj, true)
+}
+
+// marshalObjectHelper is a helper for marshalObject (that optionally applies transformers).
+func (m *marshaller) marshalObjectHelper(obj any, applyTransformers bool) error {
 	if obj == nil {
 		return m.marshalNil()
 	}
@@ -121,34 +141,44 @@ func (m *marshaller) marshalObject(obj any) error {
 		return m.marshalMap(v)
 	}
 
+	// Extension types:
 	for _, extFn := range m.opts.ApplicationMarshalExtensions {
-		extensionType, extensionData, err := extFn(obj)
-		if err == FunctionDoesNotApply {
-			continue
+		extType, extData, err := extFn(obj)
+		if err != FunctionDoesNotApply {
+			if err != nil {
+				return err
+			}
+			if extType < 0 || extType > 127 {
+				panic("Invalid application extension type")
+			}
+			return m.marshalExtensionType(extType, extData)
 		}
-		if err != nil {
-			return err
-		}
-		if extensionType < 0 || extensionType > 127 {
-			panic("Invalid application extension type")
-		}
-		return m.marshalExtensionType(extensionType, extensionData)
 	}
 	for _, extFn := range standardMarshalExtensions {
-		extensionType, extensionData, err := extFn(obj)
-		if err == FunctionDoesNotApply {
-			continue
+		extType, extData, err := extFn(obj)
+		if err != FunctionDoesNotApply {
+			if err != nil {
+				return err
+			}
+			if extType < -128 || extType >= 0 {
+				panic("Invalid standard extension type")
+			}
+			return m.marshalExtensionType(extType, extData)
 		}
-		if err != nil {
-			return err
-		}
-		if extensionType < -128 || extensionType >= 0 {
-			panic("Invalid standard extension type")
-		}
-		return m.marshalExtensionType(extensionType, extensionData)
 	}
 
-	// TODO: transformers.
+	// Transformers:
+	if applyTransformers {
+		for _, xformFn := range m.opts.ApplicationMarshalObjectTransformers {
+			xObj, err := xformFn(obj)
+			if err != FunctionDoesNotApply {
+				if err != nil {
+					return err
+				}
+				return m.marshalObjectHelper(xObj, false)
+			}
+		}
+	}
 
 	return UnsupportedTypeForMarshallingError
 }
