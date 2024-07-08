@@ -21,17 +21,40 @@ var UnsupportedTypeForMarshallingError = errors.New("Unsupported type for marsha
 // big for marshalling (e.g., a string that's 2**32 bytes or longer).
 var ObjectTooBigForMarshallingError = errors.New("Object too big for marshalling")
 
-// FunctionDoesNotApply is a pseudo-error used to signal that a function does not apply.
-// TODO
+// FunctionDoesNotApply is a pseudo-error used to signal that an extension type marshaller function
+// (MarshalToExtensionTypeFns) or a transformer function (MarshalObjectTransformerFn) does not
+// apply.
 var FunctionDoesNotApply = errors.New("Function does not apply")
 
 // Marshal -----------------------------------------------------------------------------------------
 
+// DefaultMarshalOptions is the default options used by Marshal/MarshalToBytes if it is passed nil
+// options.
 var DefaultMarshalOptions = &MarshalOptions{}
 
 // Marshal marshals a single object as MessagePack to w.
 //
-// TODO: more details.
+// It marshals:
+//   - nil to nil
+//   - bool to true/false
+//   - signed integer types (int, int{8,16,32,64}) to the most compact signed int format
+//     (positive/negative fixint, int {8,16,32,64}) possible for the given value; note that it never
+//     marshals a signed integer type to a MessagePack uint format, even though MessagePack's type
+//     system permits this
+//   - unsigned integer types (uint, uint{8,16,32,64}, uintptr) to the most compact uint format
+//     (uint {8,16,32,64}) possible; note that it never marshals an unsigned integer to a
+//     MessagePack int or fixint format
+//   - float32 to float 32
+//   - float64 to float 64; note that it will never marshals a float64 to a MessagePack float 32,
+//     even when the representation would be exact
+//   - string to the most compact str format (fixstr, str {8,16,32}) possible
+//   - []byte to the most compact bin format (bin {8,16,32}) possible
+//   - []any to the most compact array format (fixarray, array {16,32}) possible
+//   - map[any]any to the most compact map format (fixmap, map {16,32}) possible
+//   - time.Time to the timestamp extension (type -1), using the most compact format possible
+//     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
+//   - other extension types per opts.ApplicationMarshalExtensions, using the most compact format
+//     (fixext {1,2,4,8,16}, ext {8,16,32}) possible
 func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions

@@ -37,6 +37,8 @@ var InvalidFormatError = errors.New("Invalid format")
 
 // Unmarshal ---------------------------------------------------------------------------------------
 
+// DefaultUnmarshalOptions is the default options used by Unmarshal/UnmarshalBytes if it is passed
+// nil options.
 var DefaultUnmarshalOptions = &UnmarshalOptions{}
 
 // Unmarshal unmarshals a single MessagePack object from r. It is very simplistic, and produces the
