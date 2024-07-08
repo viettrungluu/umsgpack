@@ -29,7 +29,7 @@ strong type based on `type`. It's hard to design/build an unmarshaller that hand
 variadic-type situations simply, much less efficiently. (E.g., one complication is that in the input
 stream the data for the `type` need not precede the data for `data`.)
 
-## Marshalling design (WIP)
+## Marshalling design
 
 An object is marshalled in the following order (the process terminates when the object is
 marshalled):
@@ -61,9 +61,7 @@ involves reflection.
   * Possibly, it should also be able to decode maps to a target struct (type), instead of just to
     maps. (This would require a different interface, and require reflection, so would be done
     separately in any case.)
-* Basic encoding (marshalling) is supported.
-  * Extensions (including timestamps) are not yet supported.
-  * Nor are other custom serializations (e.g., to serialize some value as a different value).
+* Encoding (marshalling) is supported.
   * Ergonomic encoding of arrays (other than `[]any`), maps (other than `map[any]any`), and structs
     is not yet supported.
-  * Testing of failures/errors is very incomplete.
+  * Testing of failures/errors is nonexistent.
