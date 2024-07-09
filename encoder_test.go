@@ -354,13 +354,42 @@ var commonMarshalTestCases = []marshalTestCase{
 
 type testMarshalType1 string
 
-type testMarshalType2 struct {
-	value int64
+type testMarshalType2 struct{}
+
+type testMarshalType3 struct {
+	value bool
 }
 
 var defaultOptsMarshalTestCases = []marshalTestCase{
 	{obj: testMarshalType1(""), err: UnsupportedTypeForMarshallingError},
 	{obj: &testMarshalType2{}, err: UnsupportedTypeForMarshallingError},
+	{obj: &testMarshalType3{}, err: UnsupportedTypeForMarshallingError},
+}
+
+var applicationExtensionsMarshalTestCases = []marshalTestCase{
+	// *** testMarshalType1
+	// fixext 1: 11010100: 0xd4
+	{obj: testMarshalType1("h"), encoded: []byte{0xd4, 0x0c, 0x68}},
+	// fixext 2: 11010101: 0xd5
+	{obj: testMarshalType1("hi"), encoded: []byte{0xd5, 0x0c, 0x68, 0x69}},
+	// fixext 4: 11010110: 0xd6
+	{obj: testMarshalType1("hihi"), encoded: []byte{0xd6, 0x0c, 0x68, 0x69, 0x68, 0x69}},
+	// fixext 8: 11010111: 0xd7
+	{obj: testMarshalType1(string(fillerChars(8))), encoded: append([]byte{0xd7, 0x0c}, fillerChars(8)...)},
+	// fixext 16: 11011000: 0xd8
+	{obj: testMarshalType1(string(fillerChars(16))), encoded: append([]byte{0xd8, 0x0c}, fillerChars(16)...)},
+	// ext 8: 11000111: 0xc7
+	{obj: testMarshalType1(""), encoded: []byte{0xc7, 0x00, 0x0c}},
+	{obj: testMarshalType1(string(fillerChars(42))), encoded: append([]byte{0xc7, 0x2a, 0x0c}, fillerChars(42)...)},
+	// ext 16: 11001000: 0xc8
+	{obj: testMarshalType1(string(fillerChars(256))), encoded: append([]byte{0xc8, 0x01, 0x00, 0x0c}, fillerChars(256)...)},
+	// ext 32: 11001001: 0xc9
+	{obj: testMarshalType1(string(fillerChars(99999))), encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0x9f, 0x0c}, fillerChars(99999)...)},
+	// *** testMarshalType2
+	{obj: &testMarshalType2{}, encoded: []byte{0xd5, 0x2a, 0x68, 0x69}},
+	// *** other
+	{obj: map[any]any{testMarshalType1("hi"): &testMarshalType2{}}, encoded: []byte{0x81, 0xd5, 0x0c, 0x68, 0x69, 0xd5, 0x2a, 0x68, 0x69}},
+	{obj: &testMarshalType3{}, err: UnsupportedTypeForMarshallingError},
 }
 
 // A marshalWriteErrorTestCase defines a test case for marshalling write errors: the original object
@@ -707,6 +736,30 @@ func TestMarshal_defaultOpts(t *testing.T) {
 	opts := &MarshalOptions{}
 	testMarshal(t, opts, commonMarshalTestCases)
 	testMarshal(t, opts, defaultOptsMarshalTestCases)
+	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
+}
+
+func TestMarshal_applicationExtensions(t *testing.T) {
+	opts := &MarshalOptions{
+		ApplicationMarshalExtensions: []MarshalToExtensionTypeFn{
+			func(obj any) (int, []byte, error) {
+				if t, ok := obj.(testMarshalType1); ok {
+					return 12, []byte(t), nil
+				} else {
+					return 0, nil, FunctionDoesNotApply
+				}
+			},
+			func(obj any) (int, []byte, error) {
+				if _, ok := obj.(*testMarshalType2); ok {
+					return 42, []byte("hi"), nil
+				} else {
+					return 0, nil, FunctionDoesNotApply
+				}
+			},
+		},
+	}
+	testMarshal(t, opts, commonMarshalTestCases)
+	testMarshal(t, opts, applicationExtensionsMarshalTestCases)
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
 
