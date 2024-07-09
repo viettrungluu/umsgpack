@@ -91,7 +91,12 @@ type UnmarshalOptions struct {
 	// unmarshalled/preserved faithfully as *UnresolvedExtensionTypes.
 	EnableUnsupportedExtensionTypeError bool
 
-	// ApplicationUnmarshalExtensions is a map from any application-specific extension types
+	// ApplicationUnmarshalExtensions is a map from any extension types (-128 to 127) to the
+	// corresponding UnmarshalExtensionTypeFn.
+	//
+	// Application-specific extension types are in the range 0 to 127, but this can also be used
+	// to support new standard extension types not yet supported by umsgpack or to override
+	// built-insupport.
 	// (0-127) to the corresponding UnmarshalExtensionTypeFn.
 	ApplicationUnmarshalExtensions map[int]UnmarshalExtensionTypeFn
 }
@@ -415,7 +420,11 @@ func (u *unmarshaller) unmarshalNExt(n uint) (any, bool, error) {
 // resolveExtensionType tries to resolve the given extension type and data to a concrete object.
 // It returns a *UnresolvedExtensionType if it is unable to.
 func (u *unmarshaller) resolveExtensionType(extensionType int, data []byte) (any, bool, error) {
-	unmarshalFn := u.getUnmarshalExtensionTypeFn(extensionType)
+	unmarshalFn := u.opts.ApplicationUnmarshalExtensions[extensionType]
+	if unmarshalFn == nil {
+		unmarshalFn = standardUnmarshalExtensions[extensionType]
+	}
+
 	if unmarshalFn == nil {
 		if u.opts.EnableUnsupportedExtensionTypeError {
 			return nil, false, UnsupportedExtensionTypeError
@@ -424,16 +433,6 @@ func (u *unmarshaller) resolveExtensionType(extensionType int, data []byte) (any
 	}
 
 	return unmarshalFn(data)
-}
-
-// getUnmarshalExtensionTypeFn returns the UnmarshalExtensionTypeFn for the given extensionType, if
-// any.
-func (u *unmarshaller) getUnmarshalExtensionTypeFn(extensionType int) UnmarshalExtensionTypeFn {
-	if extensionType < 0 {
-		return standardUnmarshalExtensions[extensionType]
-	} else {
-		return u.opts.ApplicationUnmarshalExtensions[extensionType]
-	}
 }
 
 // readByte is a helper that reads exactly one byte.

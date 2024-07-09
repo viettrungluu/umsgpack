@@ -324,6 +324,31 @@ var commonUnmarshalTestCases = []unmarshalTestCase{
 	{encoded: []byte{0xd8, 0x00}, err: io.EOF},
 	{encoded: []byte{0xd8, 0x00, 0x00}, err: io.ErrUnexpectedEOF},
 	{encoded: []byte{0xd8, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e}, err: io.ErrUnexpectedEOF},
+	// supported map key types (via fixmap):
+	{encoded: []byte{0x81, 0xc0, 0x2a}, decoded: map[any]any{nil: int(42)}},
+	{encoded: []byte{0x81, 0xc2, 0x2a}, decoded: map[any]any{false: int(42)}},
+	{encoded: []byte{0x81, 0xc3, 0x2a}, decoded: map[any]any{true: int(42)}},
+	{encoded: []byte{0x81, 0x0c, 0x2a}, decoded: map[any]any{int(12): int(42)}},
+	{encoded: []byte{0x81, 0xf4, 0x2a}, decoded: map[any]any{int(-12): int(42)}},
+	{encoded: []byte{0x81, 0xd0, 0x0c, 0x2a}, decoded: map[any]any{int(12): int(42)}},
+	{encoded: []byte{0x81, 0xd1, 0xff, 0xf4, 0x2a}, decoded: map[any]any{int(-12): int(42)}},
+	{encoded: []byte{0x81, 0xd2, 0x00, 0x00, 0x00, 0x0c, 0x2a}, decoded: map[any]any{int(12): int(42)}},
+	{encoded: []byte{0x81, 0xd3, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf4, 0x2a}, decoded: map[any]any{int(-12): int(42)}},
+	{encoded: []byte{0x81, 0xcc, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
+	{encoded: []byte{0x81, 0xcd, 0x00, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
+	{encoded: []byte{0x81, 0xce, 0x00, 0x00, 0x00, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
+	{encoded: []byte{0x81, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
+	{encoded: []byte{0x81, 0xca, 0x3f, 0x80, 0x00, 0x00, 0x2a}, decoded: map[any]any{float32(1): int(42)}},
+	{encoded: []byte{0x81, 0xcb, 0x3f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2a}, decoded: map[any]any{float64(1): int(42)}},
+	{encoded: []byte{0x81, 0xa2, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
+	{encoded: []byte{0x81, 0xd9, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
+	{encoded: []byte{0x81, 0xda, 0x00, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
+	{encoded: []byte{0x81, 0xdb, 0x00, 0x00, 0x00, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
+}
+
+// timestampUnmarshalTestCases contains test cases for the built-in support for the timestamp
+// extension (-1).
+var timestampUnmarshalTestCases = []unmarshalTestCase{
 	// Timestamp extension type (-1):
 	// - timestamp 32
 	//   (as fixext 4, which is canonical/minimal)
@@ -360,25 +385,6 @@ var commonUnmarshalTestCases = []unmarshalTestCase{
 	{encoded: []byte{0xc7, 0x0b, 0xff, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a}, err: InvalidTimestampError},
 	{encoded: []byte{0xc7, 0x0d, 0xff, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c}, err: InvalidTimestampError},
 	// supported map key types (via fixmap):
-	{encoded: []byte{0x81, 0xc0, 0x2a}, decoded: map[any]any{nil: int(42)}},
-	{encoded: []byte{0x81, 0xc2, 0x2a}, decoded: map[any]any{false: int(42)}},
-	{encoded: []byte{0x81, 0xc3, 0x2a}, decoded: map[any]any{true: int(42)}},
-	{encoded: []byte{0x81, 0x0c, 0x2a}, decoded: map[any]any{int(12): int(42)}},
-	{encoded: []byte{0x81, 0xf4, 0x2a}, decoded: map[any]any{int(-12): int(42)}},
-	{encoded: []byte{0x81, 0xd0, 0x0c, 0x2a}, decoded: map[any]any{int(12): int(42)}},
-	{encoded: []byte{0x81, 0xd1, 0xff, 0xf4, 0x2a}, decoded: map[any]any{int(-12): int(42)}},
-	{encoded: []byte{0x81, 0xd2, 0x00, 0x00, 0x00, 0x0c, 0x2a}, decoded: map[any]any{int(12): int(42)}},
-	{encoded: []byte{0x81, 0xd3, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf4, 0x2a}, decoded: map[any]any{int(-12): int(42)}},
-	{encoded: []byte{0x81, 0xcc, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
-	{encoded: []byte{0x81, 0xcd, 0x00, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
-	{encoded: []byte{0x81, 0xce, 0x00, 0x00, 0x00, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
-	{encoded: []byte{0x81, 0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x2a}, decoded: map[any]any{uint(12): int(42)}},
-	{encoded: []byte{0x81, 0xca, 0x3f, 0x80, 0x00, 0x00, 0x2a}, decoded: map[any]any{float32(1): int(42)}},
-	{encoded: []byte{0x81, 0xcb, 0x3f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2a}, decoded: map[any]any{float64(1): int(42)}},
-	{encoded: []byte{0x81, 0xa2, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
-	{encoded: []byte{0x81, 0xd9, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
-	{encoded: []byte{0x81, 0xda, 0x00, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
-	{encoded: []byte{0x81, 0xdb, 0x00, 0x00, 0x00, 0x02, 0x31, 0x32, 0x2a}, decoded: map[any]any{"12": int(42)}},
 	{encoded: []byte{0x81, 0xd6, 0xff, 0x12, 0x34, 0x56, 0x78, 0x2a}, decoded: map[any]any{time.Unix(0x12345678, 0): int(42)}},
 }
 
@@ -494,6 +500,7 @@ var nonDefaultOptsUnmarshalTestCases = []unmarshalTestCase{
 func TestUnmarshal_defaultOpts(t *testing.T) {
 	opts := &UnmarshalOptions{}
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
+	testUnmarshal(t, opts, timestampUnmarshalTestCases)
 	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
 }
 
@@ -505,6 +512,7 @@ func TestUnmarshal_nonDefaultOpts(t *testing.T) {
 		EnableUnsupportedExtensionTypeError: true,
 	}
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
+	testUnmarshal(t, opts, timestampUnmarshalTestCases)
 	testUnmarshal(t, opts, nonDefaultOptsUnmarshalTestCases)
 }
 
@@ -570,6 +578,35 @@ func TestUnmarshal_applicationExtensions(t *testing.T) {
 		},
 	}
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
+	testUnmarshal(t, opts, timestampUnmarshalTestCases)
 	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
 	testUnmarshal(t, opts, applicationExtensionsUnmarshalTestCases)
+}
+
+var timestampExtensionOverrideUnmarshalTestCases = []unmarshalTestCase{
+	// Timestamp extension type (-1):
+	// - timestamp 32
+	//   (as fixext 4, which is canonical/minimal)
+	// - timestamp 64
+	//   (as fixext 8, which is canonical/minimal)
+	{encoded: []byte{0xd7, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, decoded: "tomorrow"},
+	// - timestamp 96
+	//   (as ext 8, which is canonical/minimal)
+	{encoded: []byte{0xc7, 0x0c, 0xff, 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0}, decoded: "tomorrow"},
+	// - invalid lengths (via ext 8)
+	{encoded: []byte{0xc7, 0x00, 0xff}, decoded: "tomorrow"},
+}
+
+func TestUnmarshal_timestampExtensionOverride(t *testing.T) {
+	opts := &UnmarshalOptions{
+		ApplicationUnmarshalExtensions: map[int]UnmarshalExtensionTypeFn{
+			// -1: just unmarshals to a string.
+			-1: func(data []byte) (any, bool, error) {
+				return string("tomorrow"), true, nil
+			},
+		},
+	}
+	testUnmarshal(t, opts, commonUnmarshalTestCases)
+	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
+	testUnmarshal(t, opts, timestampExtensionOverrideUnmarshalTestCases)
 }
