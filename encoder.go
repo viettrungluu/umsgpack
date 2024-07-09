@@ -51,6 +51,8 @@ var DefaultMarshalOptions = &MarshalOptions{}
 //   - []byte to the most compact bin format (bin {8,16,32}) possible
 //   - []any to the most compact array format (fixarray, array {16,32}) possible
 //   - map[any]any to the most compact map format (fixmap, map {16,32}) possible
+//   - *UnresolvedExtensionType to the most compact extension format (fixext {1,2,4,8,16}, ext
+//     {8,16,32}) possible
 //   - time.Time to the timestamp extension (type -1), using the most compact format possible
 //     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
 //   - other extension types per opts.ApplicationMarshalExtensions, using the most compact format
@@ -162,6 +164,8 @@ func (m *marshaller) marshalObjectHelper(obj any, applyTransformers bool) error 
 		return m.marshalArray(v)
 	case map[any]any:
 		return m.marshalMap(v)
+	case *UnresolvedExtensionType:
+		return m.marshalExtensionType(int(v.ExtensionType), v.Data)
 	}
 
 	// Extension types:

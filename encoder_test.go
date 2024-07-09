@@ -301,6 +301,32 @@ var commonMarshalTestCases = []marshalTestCase{
 	// map 32: 11011111: 0xdf
 	{obj: genMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true},
 	{obj: genMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true},
+	// *** *UnresolvedExtensionType
+	// fixext 1: 11010100: 0xd4
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00}}, encoded: []byte{0xd4, 0x12, 0x00}},
+	// fixext 2: 11010101: 0xd5
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01}}, encoded: []byte{0xd5, 0x12, 0x00, 0x01}},
+	// fixext 4: 11010110: 0xd6
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01, 0x02, 0x03}}, encoded: []byte{0xd6, 0x12, 0x00, 0x01, 0x02, 0x03}},
+	// fixext 8: 11010111: 0xd7
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(8)}, encoded: append([]byte{0xd7, 0x12}, fillerBytes(8)...)},
+	// fixext 16: 11011000: 0xd8
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(16)}, encoded: append([]byte{0xd8, 0x12}, fillerBytes(16)...)},
+	// ext 8: 11000111: 0xc7
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{}}, encoded: []byte{0xc7, 0x00, 0x12}},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01, 0x02}}, encoded: []byte{0xc7, 0x03, 0x12, 0x00, 0x01, 0x02}},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(5)}, encoded: append([]byte{0xc7, 0x05, 0x12}, fillerBytes(5)...)},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(7)}, encoded: append([]byte{0xc7, 0x07, 0x12}, fillerBytes(7)...)},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(9)}, encoded: append([]byte{0xc7, 0x09, 0x12}, fillerBytes(9)...)},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(15)}, encoded: append([]byte{0xc7, 0x0f, 0x12}, fillerBytes(15)...)},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(17)}, encoded: append([]byte{0xc7, 0x11, 0x12}, fillerBytes(17)...)},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(math.MaxUint8)}, encoded: append([]byte{0xc7, 0xff, 0x12}, fillerBytes(math.MaxUint8)...)},
+	// ext 16: 11001000: 0xc8
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(math.MaxUint8 + 1)}, encoded: append([]byte{0xc8, 0x01, 0x00, 0x12}, fillerBytes(math.MaxUint8+1)...)},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(math.MaxUint16)}, encoded: append([]byte{0xc8, 0xff, 0xff, 0x12}, fillerBytes(math.MaxUint16)...)},
+	// ext 32: 11001001: 0xc9
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(math.MaxUint16 + 1)}, encoded: append([]byte{0xc9, 0x00, 0x01, 0x00, 0x00, 0x12}, fillerBytes(math.MaxUint16+1)...)},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(99999)}, encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0x9f, 0x12}, fillerBytes(99999)...)},
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), encoded: []byte{0xd6, 0xff, 0x00, 0x00, 0x00, 0x00}},
