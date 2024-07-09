@@ -103,12 +103,6 @@ type UnmarshalOptions struct {
 // valid map key (for a map[any]any).
 type UnmarshalExtensionTypeFn func(data []byte) (object any, mapKeySupported bool, err error)
 
-// An *UnresolvedExtensionType represents data from an unresolved/unsupported extension type.
-type UnresolvedExtensionType struct {
-	ExtensionType int8
-	Data          []byte
-}
-
 // unmarshaller ------------------------------------------------------------------------------------
 
 // An unmarshaller handles MessagePack unmarshalling for Unmarshal.
