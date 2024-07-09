@@ -7,6 +7,7 @@ package umsgpack_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"math"
 	"reflect"
@@ -368,6 +369,7 @@ var defaultOptsMarshalTestCases = []marshalTestCase{
 
 var applicationExtensionsMarshalTestCases = []marshalTestCase{
 	// *** testMarshalType1
+	{obj: testMarshalType1("oops"), err: testError},
 	// fixext 1: 11010100: 0xd4
 	{obj: testMarshalType1("h"), encoded: []byte{0xd4, 0x0c, 0x68}},
 	// fixext 2: 11010101: 0xd5
@@ -739,11 +741,16 @@ func TestMarshal_defaultOpts(t *testing.T) {
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
 
+var testError = errors.New("test error")
+
 func TestMarshal_applicationExtensions(t *testing.T) {
 	opts := &MarshalOptions{
 		ApplicationMarshalExtensions: []MarshalToExtensionTypeFn{
 			func(obj any) (int, []byte, error) {
 				if t, ok := obj.(testMarshalType1); ok {
+					if t == "oops" {
+						return 12, nil, testError
+					}
 					return 12, []byte(t), nil
 				} else {
 					return 0, nil, FunctionDoesNotApply
