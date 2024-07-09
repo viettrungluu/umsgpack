@@ -7,7 +7,7 @@ package umsgpack_test
 
 import (
 	"bytes"
-	// "io"
+	"io"
 	"math"
 	"reflect"
 	"testing"
@@ -325,11 +325,259 @@ var commonMarshalTestCases = []marshalTestCase{
 	// TODO: test error cases (mostly write failing).
 }
 
+// A marshalWriteErrorTestCase defines a test case for marshalling write errors: the original object
+// and where the write error will occur.
+type marshalWriteErrorTestCase struct {
+	obj   any
+	errAt int
+}
+
+// A *limitedDiscardWriter is an io.Writer that discards up to a given number of bytes. It'll return
+// io.ErrShortWrite if too much is written.
+type limitedDiscardWriter struct {
+	left int
+}
+
+var _ io.Writer = (*limitedDiscardWriter)(nil)
+
+func (w *limitedDiscardWriter) Write(p []byte) (n int, err error) {
+	w.left -= len(p)
+	if w.left < 0 {
+		return len(p) + w.left, io.ErrShortWrite
+	} else {
+		return len(p), nil
+	}
+}
+
+// testMarshalWriteError is a helper for testing Marshal with the given options for the given
+// write-error test cases.
+func testMarshalWriteError(t *testing.T, opts *MarshalOptions, tCs []marshalWriteErrorTestCase) {
+	for _, tC := range tCs {
+		writer := &limitedDiscardWriter{tC.errAt}
+		if err := Marshal(opts, writer, tC.obj); err != io.ErrShortWrite {
+			t.Errorf("unexected error for obj=%#v (errAt=%v): err=%v", tC.obj, tC.errAt, err)
+		}
+	}
+}
+
+var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
+	// nil: 11000000: 0xc0
+	{obj: nil, errAt: 0},
+	// *** bool
+	// false: 11000010: 0xc2
+	{obj: false, errAt: 0},
+	// true: 11000011: 0xc3
+	{obj: true, errAt: 0},
+	// *** int (which we require to be 64-bit)
+	// positive fixint: 0xxxxxxx: 0x00 - 0x7f
+	{obj: int(42), errAt: 0},
+	// negative fixint: 111xxxxx: 0xe0 - 0xff
+	{obj: int(-12), errAt: 0},
+	// int 8: 11010000: 0xd0
+	{obj: int(-42), errAt: 0},
+	{obj: int(-42), errAt: 1},
+	// int 16: 11010001: 0xd1
+	{obj: int(1234), errAt: 0},
+	{obj: int(1234), errAt: 1},
+	{obj: int(1234), errAt: 2},
+	// int 32: 11010010: 0xd2
+	{obj: int(123456), errAt: 0},
+	{obj: int(123456), errAt: 1},
+	{obj: int(123456), errAt: 4},
+	// int 64: 11010011: 0xd3
+	{obj: int(9876543210), errAt: 0},
+	{obj: int(9876543210), errAt: 1},
+	{obj: int(9876543210), errAt: 8},
+	// *** int8
+	// positive fixint: 0xxxxxxx: 0x00 - 0x7f
+	{obj: int8(42), errAt: 0},
+	// negative fixint: 111xxxxx: 0xe0 - 0xff
+	{obj: int8(-12), errAt: 0},
+	// int 8: 11010000: 0xd0
+	{obj: int8(-42), errAt: 0},
+	{obj: int8(-42), errAt: 1},
+	// *** int16
+	// positive fixint: 0xxxxxxx: 0x00 - 0x7f
+	{obj: int16(42), errAt: 0},
+	// negative fixint: 111xxxxx: 0xe0 - 0xff
+	{obj: int16(-12), errAt: 0},
+	// int 8: 11010000: 0xd0
+	{obj: int16(-42), errAt: 0},
+	{obj: int16(-42), errAt: 1},
+	// int 16: 11010001: 0xd1
+	{obj: int16(1234), errAt: 0},
+	{obj: int16(1234), errAt: 1},
+	{obj: int16(1234), errAt: 2},
+	// *** int32
+	// positive fixint: 0xxxxxxx: 0x00 - 0x7f
+	{obj: int32(42), errAt: 0},
+	// negative fixint: 111xxxxx: 0xe0 - 0xff
+	{obj: int32(-12), errAt: 0},
+	// int 8: 11010000: 0xd0
+	{obj: int32(-42), errAt: 0},
+	{obj: int32(-42), errAt: 1},
+	// int 16: 11010001: 0xd1
+	{obj: int32(1234), errAt: 0},
+	{obj: int32(1234), errAt: 1},
+	{obj: int32(1234), errAt: 2},
+	// int 32: 11010010: 0xd2
+	{obj: int32(123456), errAt: 0},
+	{obj: int32(123456), errAt: 1},
+	{obj: int32(123456), errAt: 4},
+	// *** int64
+	// positive fixint: 0xxxxxxx: 0x00 - 0x7f
+	{obj: int64(42), errAt: 0},
+	// negative fixint: 111xxxxx: 0xe0 - 0xff
+	{obj: int64(-12), errAt: 0},
+	// int 8: 11010000: 0xd0
+	{obj: int64(-42), errAt: 0},
+	{obj: int64(-42), errAt: 1},
+	// int 16: 11010001: 0xd1
+	{obj: int64(1234), errAt: 0},
+	{obj: int64(1234), errAt: 1},
+	{obj: int64(1234), errAt: 2},
+	// int 32: 11010010: 0xd2
+	{obj: int64(123456), errAt: 0},
+	{obj: int64(123456), errAt: 1},
+	{obj: int64(123456), errAt: 4},
+	// int 64: 11010011: 0xd3
+	{obj: int64(9876543210), errAt: 0},
+	{obj: int64(9876543210), errAt: 1},
+	{obj: int64(9876543210), errAt: 8},
+	// *** uint
+	// uint 8: 11001100: 0xcc
+	{obj: uint(42), errAt: 0},
+	{obj: uint(42), errAt: 1},
+	// uint 16: 11001101: 0xcd
+	{obj: uint(1234), errAt: 0},
+	{obj: uint(1234), errAt: 1},
+	{obj: uint(1234), errAt: 2},
+	// uint 32: 11001110: 0xce
+	{obj: uint(123456), errAt: 0},
+	{obj: uint(123456), errAt: 1},
+	{obj: uint(123456), errAt: 4},
+	// uint 64: 11001111: 0xcf
+	{obj: uint(9876543210), errAt: 0},
+	{obj: uint(9876543210), errAt: 1},
+	{obj: uint(9876543210), errAt: 8},
+	// *** uint8
+	// uint 8: 11001100: 0xcc
+	{obj: uint8(42), errAt: 0},
+	{obj: uint8(42), errAt: 1},
+	// *** uint16
+	// uint 8: 11001100: 0xcc
+	{obj: uint16(42), errAt: 0},
+	{obj: uint16(42), errAt: 1},
+	// uint 16: 11001101: 0xcd
+	{obj: uint16(1234), errAt: 0},
+	{obj: uint16(1234), errAt: 1},
+	{obj: uint16(1234), errAt: 2},
+	// *** uint32
+	// uint 8: 11001100: 0xcc
+	{obj: uint32(42), errAt: 0},
+	{obj: uint32(42), errAt: 1},
+	// uint 16: 11001101: 0xcd
+	{obj: uint32(1234), errAt: 0},
+	{obj: uint32(1234), errAt: 1},
+	{obj: uint32(1234), errAt: 2},
+	// uint 32: 11001110: 0xce
+	{obj: uint32(123456), errAt: 0},
+	{obj: uint32(123456), errAt: 1},
+	{obj: uint32(123456), errAt: 4},
+	// *** uint64
+	// uint 8: 11001100: 0xcc
+	{obj: uint64(42), errAt: 0},
+	{obj: uint64(42), errAt: 1},
+	// uint 16: 11001101: 0xcd
+	{obj: uint64(1234), errAt: 0},
+	{obj: uint64(1234), errAt: 1},
+	{obj: uint64(1234), errAt: 2},
+	// uint 32: 11001110: 0xce
+	{obj: uint64(123456), errAt: 0},
+	{obj: uint64(123456), errAt: 1},
+	{obj: uint64(123456), errAt: 4},
+	// uint 64: 11001111: 0xcf
+	{obj: uint64(9876543210), errAt: 0},
+	{obj: uint64(9876543210), errAt: 1},
+	{obj: uint64(9876543210), errAt: 8},
+	// *** uintptr (assumed to be 64-bit here)
+	// uint 8: 11001100: 0xcc
+	{obj: uintptr(42), errAt: 0},
+	{obj: uintptr(42), errAt: 1},
+	// uint 16: 11001101: 0xcd
+	{obj: uintptr(1234), errAt: 0},
+	{obj: uintptr(1234), errAt: 1},
+	{obj: uintptr(1234), errAt: 2},
+	// uint 32: 11001110: 0xce
+	{obj: uintptr(123456), errAt: 0},
+	{obj: uintptr(123456), errAt: 1},
+	{obj: uintptr(123456), errAt: 4},
+	// uint 64: 11001111: 0xcf
+	{obj: uintptr(9876543210), errAt: 0},
+	{obj: uintptr(9876543210), errAt: 1},
+	{obj: uintptr(9876543210), errAt: 8},
+	// *** float32
+	// float 32: 11001010: 0xca
+	{obj: float32(12.34), errAt: 0},
+	{obj: float32(12.34), errAt: 1},
+	{obj: float32(12.34), errAt: 4},
+	// *** float64
+	// float 64: 11001011: 0xcb
+	{obj: float64(12.34), errAt: 0},
+	{obj: float64(12.34), errAt: 1},
+	{obj: float64(12.34), errAt: 8},
+	// *** string
+	// fixstr: 101xxxxx: 0xa0 - 0xbf
+	{obj: "hi", errAt: 0},
+	{obj: "hi", errAt: 1},
+	{obj: "hi", errAt: 2},
+	// str 8: 11011001: 0xd9
+	{obj: string(fillerChars(56)), errAt: 0},
+	{obj: string(fillerChars(56)), errAt: 1},
+	{obj: string(fillerChars(56)), errAt: 2},
+	{obj: string(fillerChars(56)), errAt: 57},
+	// str 16: 11011010: 0xda
+	{obj: string(fillerChars(1234)), errAt: 0},
+	{obj: string(fillerChars(1234)), errAt: 1},
+	{obj: string(fillerChars(1234)), errAt: 2},
+	{obj: string(fillerChars(1234)), errAt: 3},
+	{obj: string(fillerChars(1234)), errAt: 1236},
+	// str 32: 11011011: 0xdb
+	{obj: string(fillerChars(123456)), errAt: 0},
+	{obj: string(fillerChars(123456)), errAt: 1},
+	{obj: string(fillerChars(123456)), errAt: 5},
+	{obj: string(fillerChars(123456)), errAt: 6},
+	{obj: string(fillerChars(123456)), errAt: 123460},
+	// *** []byte
+	// bin 8: 11000100: 0xc4
+	{obj: fillerBytes(56), errAt: 0},
+	{obj: fillerBytes(56), errAt: 1},
+	{obj: fillerBytes(56), errAt: 2},
+	{obj: fillerBytes(56), errAt: 57},
+	// bin 16: 11000101: 0xc5
+	{obj: fillerBytes(1234), errAt: 0},
+	{obj: fillerBytes(1234), errAt: 1},
+	{obj: fillerBytes(1234), errAt: 2},
+	{obj: fillerBytes(1234), errAt: 3},
+	{obj: fillerBytes(1234), errAt: 1236},
+	// bin 32: 11000110: 0xc6
+	{obj: fillerBytes(123456), errAt: 0},
+	{obj: fillerBytes(123456), errAt: 1},
+	{obj: fillerBytes(123456), errAt: 5},
+	{obj: fillerBytes(123456), errAt: 6},
+	{obj: fillerBytes(123456), errAt: 123460},
+	// TODO:
+	// *** []any
+	// *** map[any]any
+	// *** time.Time
+}
+
 // TestMarshal_defaultOpts tests Marshal with the default options (all boolean options are false).
 func TestMarshal_defaultOpts(t *testing.T) {
 	opts := &MarshalOptions{}
 	testMarshal(t, opts, commonMarshalTestCases)
 	// TODO: testMarshal(t, opts, defaultOptsMarshalTestCases)
+	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
 
 // TODO: test application extension types.
