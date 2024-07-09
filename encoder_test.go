@@ -348,7 +348,8 @@ var commonMarshalTestCases = []marshalTestCase{
 	{obj: time.Unix(-1, 999999999), encoded: []byte{0xc7, 0x0c, 0xff, 0x3b, 0x9a, 0xc9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}},
 	{obj: time.Unix(math.MinInt64, 1), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
 	{obj: time.Unix(math.MinInt64, 999999999), encoded: []byte{0xc7, 0x0c, 0xff, 0x3b, 0x9a, 0xc9, 0xff, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
-	// TODO: test error cases (mostly write failing).
+	// *** Errors
+	{obj: chan int(nil), err: UnsupportedTypeForMarshallingError},
 }
 
 // A marshalWriteErrorTestCase defines a test case for marshalling write errors: the original object
@@ -671,8 +672,23 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 5},
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 6},
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 123461},
-	// TODO:
 	// *** time.Time
+	// timestamp 32
+	{obj: time.Unix(0, 0), errAt: 0},
+	{obj: time.Unix(0, 0), errAt: 1},
+	{obj: time.Unix(0, 0), errAt: 2},
+	{obj: time.Unix(0, 0), errAt: 5},
+	// timestamp 64
+	{obj: time.Unix(0, 1), errAt: 0},
+	{obj: time.Unix(0, 1), errAt: 1},
+	{obj: time.Unix(0, 1), errAt: 2},
+	{obj: time.Unix(0, 1), errAt: 9},
+	// timestamp 96
+	{obj: time.Unix(1<<34, 0), errAt: 0},
+	{obj: time.Unix(1<<34, 0), errAt: 1},
+	{obj: time.Unix(1<<34, 0), errAt: 2},
+	{obj: time.Unix(1<<34, 0), errAt: 3},
+	{obj: time.Unix(1<<34, 0), errAt: 14},
 }
 
 // TestMarshal_defaultOpts tests Marshal with the default options (all boolean options are false).
