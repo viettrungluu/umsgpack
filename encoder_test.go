@@ -566,9 +566,41 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: fillerBytes(123456), errAt: 5},
 	{obj: fillerBytes(123456), errAt: 6},
 	{obj: fillerBytes(123456), errAt: 123460},
-	// TODO:
 	// *** []any
+	// fixarray: 1001xxxx: 0x90 - 0x9f
+	{obj: genArray(12), errAt: 0},
+	{obj: genArray(12), errAt: 1},
+	// array 16: 11011100: 0xdc
+	{obj: genArray(42), errAt: 0},
+	{obj: genArray(42), errAt: 1},
+	{obj: genArray(42), errAt: 2},
+	{obj: genArray(42), errAt: 3},
+	// array 32: 11011101: 0xdd
+	{obj: genArray(123456), errAt: 0},
+	{obj: genArray(123456), errAt: 1},
+	{obj: genArray(123456), errAt: 4},
+	{obj: genArray(123456), errAt: 5},
 	// *** map[any]any
+	// fixmap: 1000xxxx: 0x80 - 0x8f
+	{obj: genMap(12), errAt: 0},
+	{obj: genMap(12), errAt: 1},
+	{obj: genMap(12), errAt: 2},
+	{obj: genMap(12), errAt: 3},
+	// map 16: 11011110: 0xde
+	{obj: genMap(42), errAt: 0},
+	{obj: genMap(42), errAt: 1},
+	{obj: genMap(42), errAt: 2},
+	{obj: genMap(42), errAt: 3},
+	{obj: genMap(42), errAt: 4},
+	{obj: genMap(42), errAt: 5},
+	// map 32: 11011111: 0xdf
+	{obj: genMap(123456), errAt: 0},
+	{obj: genMap(123456), errAt: 1},
+	{obj: genMap(123456), errAt: 4},
+	{obj: genMap(123456), errAt: 5},
+	{obj: genMap(123456), errAt: 6},
+	{obj: genMap(123456), errAt: 7},
+	// TODO:
 	// *** time.Time
 }
 
