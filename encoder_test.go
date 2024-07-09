@@ -770,5 +770,4 @@ func TestMarshal_applicationExtensions(t *testing.T) {
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
 
-// TODO: test application extension types.
 // TODO: test application transformers.
