@@ -1,1 +1,4 @@
 .*.sw?
+
+# Coverage output.
+/cover.out
