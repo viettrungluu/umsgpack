@@ -352,6 +352,17 @@ var commonMarshalTestCases = []marshalTestCase{
 	{obj: chan int(nil), err: UnsupportedTypeForMarshallingError},
 }
 
+type testMarshalType1 string
+
+type testMarshalType2 struct {
+	value int64
+}
+
+var defaultOptsMarshalTestCases = []marshalTestCase{
+	{obj: testMarshalType1(""), err: UnsupportedTypeForMarshallingError},
+	{obj: &testMarshalType2{}, err: UnsupportedTypeForMarshallingError},
+}
+
 // A marshalWriteErrorTestCase defines a test case for marshalling write errors: the original object
 // and where the write error will occur.
 type marshalWriteErrorTestCase struct {
@@ -695,7 +706,7 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 func TestMarshal_defaultOpts(t *testing.T) {
 	opts := &MarshalOptions{}
 	testMarshal(t, opts, commonMarshalTestCases)
-	// TODO: testMarshal(t, opts, defaultOptsMarshalTestCases)
+	testMarshal(t, opts, defaultOptsMarshalTestCases)
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
 
