@@ -626,6 +626,51 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: genMap(123456), errAt: 5},
 	{obj: genMap(123456), errAt: 6},
 	{obj: genMap(123456), errAt: 7},
+	// *** *UnresolvedExtensionType
+	// fixext 1: 11010100: 0xd4
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00}}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00}}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00}}, errAt: 2},
+	// fixext 2: 11010101: 0xd5
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01}}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01}}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01}}, errAt: 2},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01}}, errAt: 3},
+	// fixext 4: 11010110: 0xd6
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01, 0x02, 0x03}}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01, 0x02, 0x03}}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01, 0x02, 0x03}}, errAt: 2},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00, 0x01, 0x02, 0x03}}, errAt: 5},
+	// fixext 8: 11010111: 0xd7
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(8)}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(8)}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(8)}, errAt: 2},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(8)}, errAt: 9},
+	// fixext 16: 11011000: 0xd8
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(16)}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(16)}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(16)}, errAt: 2},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(16)}, errAt: 17},
+	// ext 8: 11000111: 0xc7
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(42)}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(42)}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(42)}, errAt: 2},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(42)}, errAt: 3},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(42)}, errAt: 44},
+	// ext 16: 11001000: 0xc8
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(1234)}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(1234)}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(1234)}, errAt: 2},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(1234)}, errAt: 3},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(1234)}, errAt: 4},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(1234)}, errAt: 1237},
+	// ext 32: 11001001: 0xc9
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 0},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 1},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 4},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 5},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 6},
+	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 123461},
 	// TODO:
 	// *** time.Time
 }
