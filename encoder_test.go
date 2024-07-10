@@ -802,3 +802,28 @@ func TestMarshal_applicationTransformers(t *testing.T) {
 	testMarshal(t, opts, applicationTransformersMarshalTestCases)
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
+
+func TestMarshalToBytes(t *testing.T) {
+	opts := &MarshalOptions{
+		ApplicationMarshalObjectTransformers: []MarshalObjectTransformerFn{
+			func(obj any) (any, error) {
+				if t, ok := obj.(testMarshalType1); ok {
+					return &UnresolvedExtensionType{
+						ExtensionType: 12,
+						Data:          []byte(t),
+					}, nil
+				} else {
+					return obj, nil
+				}
+			},
+		},
+	}
+
+	if encoded, err := MarshalToBytes(opts, testMarshalType1("hi")); err != nil || bytes.Compare(encoded, []byte{0xd5, 0x0c, 0x68, 0x69}) != 0 {
+		t.Errorf("Unexpected result from MarshalToBytes: %v, %v", encoded, err)
+	}
+
+	if encoded, err := MarshalToBytes(opts, &testMarshalType2{}); err != UnsupportedTypeForMarshallingError {
+		t.Errorf("Unexpected result from MarshalToBytes: %v, %v", encoded, err)
+	}
+}
