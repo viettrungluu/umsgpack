@@ -13,33 +13,48 @@ import (
 	. "github.com/viettrungluu/umsgpack"
 )
 
-// MarshalArrayTransformer -------------------------------------------------------------------------
+type transformerTestCase struct {
+	name        string
+	obj         any
+	expectedErr error
+	expectedOut any
+}
 
-func testMarshalArrayTransformer(t *testing.T, name string, obj any, expectedErr error, expectedOut any) {
-	if actualOut, actualErr := MarshalArrayTransformer(obj); actualErr != expectedErr {
-		t.Errorf("%v: incorrect error: actual=%v, expected=%v", name, actualErr, expectedErr)
-	} else if expectedErr == nil && !reflect.DeepEqual(actualOut, expectedOut) {
-		t.Errorf("%v: incorrect result: actual=%v, expected=%v", name, actualOut, expectedOut)
+func testTransformer(t *testing.T, xform MarshalObjectTransformerFn, tCs []transformerTestCase) {
+	for _, tC := range tCs {
+		if actualOut, actualErr := xform(tC.obj); actualErr != tC.expectedErr {
+			t.Errorf("%v: incorrect error: actual=%v, expected=%v", tC.name, actualErr, tC.expectedErr)
+		} else if tC.expectedErr == nil && !reflect.DeepEqual(actualOut, tC.expectedOut) {
+			t.Errorf("%v: incorrect result: actual=%v, expected=%v", tC.name, actualOut, tC.expectedOut)
+		}
 	}
 }
 
+// MarshalArrayTransformer -------------------------------------------------------------------------
+
 func TestMarshalArrayTransformer_notApplicable(t *testing.T) {
-	testMarshalArrayTransformer(t, "int", int(123), nil, int(123))
-	testMarshalArrayTransformer(t, "string", "hi", nil, "hi")
-	testMarshalArrayTransformer(t, "struct", struct{}{}, nil, struct{}{})
-	testMarshalArrayTransformer(t, "map", map[string]int{"hi": 123}, nil, map[string]int{"hi": 123})
+	testTransformer(t, MarshalArrayTransformer, []transformerTestCase{
+		{"int", int(123), nil, int(123)},
+		{"string", "hi", nil, "hi"},
+		{"struct", struct{}{}, nil, struct{}{}},
+		{"map", map[string]int{"hi": 123}, nil, map[string]int{"hi": 123}},
+	})
 }
 
 func TestMarshalArrayTransformer_array(t *testing.T) {
-	testMarshalArrayTransformer(t, "int array", [3]int{1, 2, 3}, nil, []any{1, 2, 3})
-	testMarshalArrayTransformer(t, "string array", [2]string{"hello", "world"}, nil, []any{"hello", "world"})
-	testMarshalArrayTransformer(t, "empty array", [0]struct{}{}, nil, []any{})
+	testTransformer(t, MarshalArrayTransformer, []transformerTestCase{
+		{"int array", [3]int{1, 2, 3}, nil, []any{1, 2, 3}},
+		{"string array", [2]string{"hello", "world"}, nil, []any{"hello", "world"}},
+		{"empty array", [0]struct{}{}, nil, []any{}},
+	})
 }
 
 func TestMarshalArrayTransformer_slice(t *testing.T) {
-	testMarshalArrayTransformer(t, "int slice", []int{1, 2, 3}, nil, []any{1, 2, 3})
-	testMarshalArrayTransformer(t, "string slice", []string{"hello", "world"}, nil, []any{"hello", "world"})
-	testMarshalArrayTransformer(t, "empty slice", []struct{}{}, nil, []any{})
+	testTransformer(t, MarshalArrayTransformer, []transformerTestCase{
+		{"int slice", []int{1, 2, 3}, nil, []any{1, 2, 3}},
+		{"string slice", []string{"hello", "world"}, nil, []any{"hello", "world"}},
+		{"empty slice", []struct{}{}, nil, []any{}},
+	})
 }
 
 func TestMarshalArrayTransformer_MarshalToBytes(t *testing.T) {
@@ -56,25 +71,21 @@ func TestMarshalArrayTransformer_MarshalToBytes(t *testing.T) {
 
 // MarshalMapTransformer ---------------------------------------------------------------------------
 
-func testMarshalMapTransformer(t *testing.T, name string, obj any, expectedErr error, expectedOut any) {
-	if actualOut, actualErr := MarshalMapTransformer(obj); actualErr != expectedErr {
-		t.Errorf("%v: incorrect error: actual=%v, expected=%v", name, actualErr, expectedErr)
-	} else if expectedErr == nil && !reflect.DeepEqual(actualOut, expectedOut) {
-		t.Errorf("%v: incorrect result: actual=%v, expected=%v", name, actualOut, expectedOut)
-	}
-}
-
 func TestMarshalMapTransformer_notApplicable(t *testing.T) {
-	testMarshalMapTransformer(t, "int", int(123), nil, int(123))
-	testMarshalMapTransformer(t, "struct", struct{}{}, nil, struct{}{})
-	testMarshalMapTransformer(t, "slice", []int{1, 2, 3}, nil, []int{1, 2, 3})
+	testTransformer(t, MarshalMapTransformer, []transformerTestCase{
+		{"int", int(123), nil, int(123)},
+		{"struct", struct{}{}, nil, struct{}{}},
+		{"slice", []int{1, 2, 3}, nil, []int{1, 2, 3}},
+	})
 }
 
 func TestMarshalMapTransformer_map(t *testing.T) {
-	testMarshalMapTransformer(t, "map[string]int", map[string]int{"hi": 123, "world": 456}, nil, map[any]any{"hi": 123, "world": 456})
-	testMarshalMapTransformer(t, "map[string]any", map[string]any{"hi": 123}, nil, map[any]any{"hi": 123})
-	testMarshalMapTransformer(t, "map[any]int", map[any]int{"hi": 123}, nil, map[any]any{"hi": 123})
-	testMarshalMapTransformer(t, "map[string]struct{}", map[any]struct{}{"hi": struct{}{}}, nil, map[any]any{"hi": struct{}{}})
+	testTransformer(t, MarshalMapTransformer, []transformerTestCase{
+		{"map[string]int", map[string]int{"hi": 123, "world": 456}, nil, map[any]any{"hi": 123, "world": 456}},
+		{"map[string]any", map[string]any{"hi": 123}, nil, map[any]any{"hi": 123}},
+		{"map[any]int", map[any]int{"hi": 123}, nil, map[any]any{"hi": 123}},
+		{"map[string]struct{}", map[any]struct{}{"hi": struct{}{}}, nil, map[any]any{"hi": struct{}{}}},
+	})
 }
 
 func TestMarshalMapTransformer_MarshalToBytes(t *testing.T) {

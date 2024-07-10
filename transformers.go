@@ -45,3 +45,5 @@ func MarshalMapTransformer(obj any) (any, error) {
 	}
 	return rv, nil
 }
+
+var _ MarshalObjectTransformerFn = MarshalMapTransformer
