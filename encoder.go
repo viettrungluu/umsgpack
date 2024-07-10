@@ -103,13 +103,9 @@ func (m *marshaller) marshalObject(obj any) error {
 		return err
 	}
 
-	// Transformers:
-	for _, xformFn := range m.opts.ApplicationMarshalObjectTransformers {
-		var err error
-		obj, err = xformFn(obj)
-		if err != nil {
-			return err
-		}
+	obj, err := m.runTransformers(m.opts.ApplicationMarshalObjectTransformers, obj)
+	if err != nil {
+		return err
 	}
 
 	return m.marshalStandardObject(obj)
@@ -166,6 +162,18 @@ func (m *marshaller) marshalStandardObject(obj any) error {
 	}
 
 	return UnsupportedTypeForMarshallingError
+}
+
+// runTransformers runs the given transformers on an object.
+func (m *marshaller) runTransformers(xforms []MarshalObjectTransformerFn, obj any) (any, error) {
+	for _, xform := range xforms {
+		var err error
+		obj, err = xform(obj)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return obj, nil
 }
 
 // marshalNil marshals a nil.
