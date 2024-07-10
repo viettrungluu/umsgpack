@@ -9,3 +9,6 @@ viewcoverage: test
 
 format:
 	gofmt -w .
+
+checkformat:
+	@test -z $(shell gofmt -l . | tee /dev/stderr)
