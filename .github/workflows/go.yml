@@ -23,3 +23,5 @@ jobs:
       run: make test
     - name: Check format
       run: make checkformat
+    - name: Vet
+      run: make vet

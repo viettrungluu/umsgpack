@@ -12,3 +12,6 @@ format:
 
 checkformat:
 	@test -z $(shell gofmt -l . | tee /dev/stderr)
+
+vet:
+	go vet .
