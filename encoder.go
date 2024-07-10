@@ -21,11 +21,6 @@ var UnsupportedTypeForMarshallingError = errors.New("Unsupported type for marsha
 // big for marshalling (e.g., a string that's 2**32 bytes or longer).
 var ObjectTooBigForMarshallingError = errors.New("Object too big for marshalling")
 
-// FunctionDoesNotApply is a pseudo-error used to signal that an extension type marshaller function
-// (MarshalToExtensionTypeFns) or a transformer function (MarshalObjectTransformerFn) does not
-// apply.
-var FunctionDoesNotApply = errors.New("Function does not apply")
-
 // Marshal -----------------------------------------------------------------------------------------
 
 // DefaultMarshalOptions is the default options used by Marshal/MarshalToBytes if it is passed nil
@@ -55,8 +50,7 @@ var DefaultMarshalOptions = &MarshalOptions{}
 //     {8,16,32}) possible
 //   - time.Time to the timestamp extension (type -1), using the most compact format possible
 //     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
-//   - other extension types per opts.ApplicationMarshalExtensions, using the most compact format
-//     (fixext {1,2,4,8,16}, ext {8,16,32}) possible
+//   - types transformed by transformers (opts.ApplicationMarshalObjectTransformers) to the above
 func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions
@@ -76,30 +70,14 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// ApplicationMarshalExtensions is an array of application-specific extension type
-	// marshallers, which will be applied in order.
-	ApplicationMarshalExtensions []MarshalToExtensionTypeFn
-
 	// ApplicationMarshalObjectTransformers is any array of application-specific transformers,
 	// which will be applied in order.
 	ApplicationMarshalObjectTransformers []MarshalObjectTransformerFn
 }
 
-// A MarshalToExtensionTypeFn marshals the given object as an extension type.
-//
-// If the function does not apply, it should return FunctionDoesNotApply.
-//
-// If it applies, it should return the extension type (0-127, for application extensions; Marshal
-// will panic if this is not the case). It may also return an error if it does/should apply but runs
-// into some other problem.
-//
-// It may determine applicability however it wants (e.g., based on type, on reflection, or on
-// nothing at all).
-type MarshalToExtensionTypeFn func(obj any) (int, []byte, error)
-
 // A MarshalObjectTransformerFn transforms the given object (usually to a marshallable type).
 //
-// If the function does not apply, it should return FunctionDoesNotApply.
+// If the function does not apply, it should just return the object as-is and no error.
 //
 // If it applies, it should return the transformed object. It may also return an error if it
 // does/should apply but runs into some other problem.
@@ -118,11 +96,24 @@ type marshaller struct {
 
 // marshalObject marshals an object.
 func (m *marshaller) marshalObject(obj any) error {
-	return m.marshalObjectHelper(obj, true)
+	if err := m.marshalStandardObject(obj); err != UnsupportedTypeForMarshallingError {
+		return err
+	}
+
+	// Transformers:
+	for _, xformFn := range m.opts.ApplicationMarshalObjectTransformers {
+		var err error
+		obj, err = xformFn(obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	return m.marshalStandardObject(obj)
 }
 
-// marshalObjectHelper is a helper for marshalObject (that optionally applies transformers).
-func (m *marshaller) marshalObjectHelper(obj any, applyTransformers bool) error {
+// marshalStandardObject marshals a standard, supported object.
+func (m *marshaller) marshalStandardObject(obj any) error {
 	if obj == nil {
 		return m.marshalNil()
 	}
@@ -166,45 +157,9 @@ func (m *marshaller) marshalObjectHelper(obj any, applyTransformers bool) error 
 		return m.marshalMap(v)
 	case *UnresolvedExtensionType:
 		return m.marshalExtensionType(int(v.ExtensionType), v.Data)
-	}
-
-	// Extension types:
-	for _, extFn := range m.opts.ApplicationMarshalExtensions {
-		extType, extData, err := extFn(obj)
-		if err != FunctionDoesNotApply {
-			if err != nil {
-				return err
-			}
-			if extType < 0 || extType > 127 {
-				panic("Invalid application extension type")
-			}
-			return m.marshalExtensionType(extType, extData)
-		}
-	}
-	for _, extFn := range standardMarshalExtensions {
-		extType, extData, err := extFn(obj)
-		if err != FunctionDoesNotApply {
-			if err != nil {
-				return err
-			}
-			if extType < -128 || extType >= 0 {
-				panic("Invalid standard extension type")
-			}
-			return m.marshalExtensionType(extType, extData)
-		}
-	}
-
-	// Transformers:
-	if applyTransformers {
-		for _, xformFn := range m.opts.ApplicationMarshalObjectTransformers {
-			xObj, err := xformFn(obj)
-			if err != FunctionDoesNotApply {
-				if err != nil {
-					return err
-				}
-				return m.marshalObjectHelper(xObj, false)
-			}
-		}
+	// Standard extension types:
+	case time.Time:
+		return m.marshalTimestampExtensionType(v)
 	}
 
 	return UnsupportedTypeForMarshallingError
@@ -421,42 +376,33 @@ func (m *marshaller) marshalExtensionType(extType int, extData []byte) error {
 	return m.write(extData...)
 }
 
-// write is a helper for calling the io.Writer's Write.
-func (m *marshaller) write(data ...byte) error {
-	_, err := m.w.Write(data)
-	return err
-}
-
-// Standard extensions -----------------------------------------------------------------------------
-
-// standardMarshalExtensions is an array of (standard) MarshalToExtensionTypeFn.
-var standardMarshalExtensions = []MarshalToExtensionTypeFn{
-	marshalToTimestampExtensionType,
-}
-
-// marshalTimestampExtensionType is a MarshalToExtensionTypeFn that marshals time.Time to the
-// standard (-1) timestamp extension type (in a minimal way).
-func marshalToTimestampExtensionType(obj any) (int, []byte, error) {
-	t, ok := obj.(time.Time)
-	if !ok {
-		return 0, nil, FunctionDoesNotApply
-	}
-
+// marshalTimestampExtensionType marshals a time.Time to the standard (-1) timestamp extension type
+// (in a minimal way).
+func (m *marshaller) marshalTimestampExtensionType(t time.Time) error {
 	sec := t.Unix()
 	nsec := t.Nanosecond()
+	var data []byte
 	if sec >= 0 {
 		if nsec == 0 && sec <= math.MaxUint32 {
 			// timestamp 32
-			return -1, []byte{byte((sec >> 24) & 0xff), byte((sec >> 16) & 0xff), byte((sec >> 8) & 0xff), byte(sec & 0xff)}, nil
-		}
-
-		if sec < (1 << 34) {
+			data = []byte{byte((sec >> 24) & 0xff), byte((sec >> 16) & 0xff), byte((sec >> 8) & 0xff), byte(sec & 0xff)}
+		} else if sec < (1 << 34) {
 			// timestamp 64
 			u := uint64(sec) | (uint64(nsec) << 34)
-			return -1, []byte{byte((u >> 56) & 0xff), byte((u >> 48) & 0xff), byte((u >> 40) & 0xff), byte((u >> 32) & 0xff), byte((u >> 24) & 0xff), byte((u >> 16) & 0xff), byte((u >> 8) & 0xff), byte(u & 0xff)}, nil
+			data = []byte{byte((u >> 56) & 0xff), byte((u >> 48) & 0xff), byte((u >> 40) & 0xff), byte((u >> 32) & 0xff), byte((u >> 24) & 0xff), byte((u >> 16) & 0xff), byte((u >> 8) & 0xff), byte(u & 0xff)}
 		}
 	}
 
 	// timestamp 96
-	return -1, []byte{byte((nsec >> 24) & 0xff), byte((nsec >> 16) & 0xff), byte((nsec >> 8) & 0xff), byte(nsec & 0xff), byte((sec >> 56) & 0xff), byte((sec >> 48) & 0xff), byte((sec >> 40) & 0xff), byte((sec >> 32) & 0xff), byte((sec >> 24) & 0xff), byte((sec >> 16) & 0xff), byte((sec >> 8) & 0xff), byte(sec & 0xff)}, nil
+	if data == nil {
+		data = []byte{byte((nsec >> 24) & 0xff), byte((nsec >> 16) & 0xff), byte((nsec >> 8) & 0xff), byte(nsec & 0xff), byte((sec >> 56) & 0xff), byte((sec >> 48) & 0xff), byte((sec >> 40) & 0xff), byte((sec >> 32) & 0xff), byte((sec >> 24) & 0xff), byte((sec >> 16) & 0xff), byte((sec >> 8) & 0xff), byte(sec & 0xff)}
+	}
+
+	return m.marshalExtensionType(-1, data)
+}
+
+// write is a helper for calling the io.Writer's Write.
+func (m *marshaller) write(data ...byte) error {
+	_, err := m.w.Write(data)
+	return err
 }
