@@ -52,7 +52,7 @@ var DefaultMarshalOptions = &MarshalOptions{}
 //     {8,16,32}) possible
 //   - time.Time to the timestamp extension (type -1), using the most compact format possible
 //     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
-//   - types transformed by transformers (opts.ApplicationMarshalTransformers) to the above
+//   - types transformed by transformers (opts.LateMarshalTransformers) to the above
 func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions
@@ -72,10 +72,11 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// ApplicationMarshalTransformers is any array of application-specific transformers, which
-	// all will be applied in order (in a chained way, i.e., passing the result of one to the
-	// next).
-	ApplicationMarshalTransformers []MarshalTransformerFn
+	// LateMarshalTransformers is any array of application-specific transformers, that will all
+	// be applied in order (in a chained way, i.e., passing the result of one to the next) if
+	// an object isn't a standard, supported object for marshalling; the result will then be
+	// marshalled, if possible.
+	LateMarshalTransformers []MarshalTransformerFn
 }
 
 // A MarshalTransformerFn transforms an object (usually to a marshallable type).
@@ -103,7 +104,7 @@ func (m *marshaller) marshalObject(obj any) error {
 		return err
 	}
 
-	obj, err := m.runTransformers(m.opts.ApplicationMarshalTransformers, obj)
+	obj, err := m.runTransformers(m.opts.LateMarshalTransformers, obj)
 	if err != nil {
 		return err
 	}

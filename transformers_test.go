@@ -59,7 +59,7 @@ func TestMarshalArrayTransformer_slice(t *testing.T) {
 
 func TestMarshalArrayTransformer_MarshalToBytes(t *testing.T) {
 	opts := &MarshalOptions{
-		ApplicationMarshalTransformers: []MarshalTransformerFn{
+		LateMarshalTransformers: []MarshalTransformerFn{
 			MarshalArrayTransformer,
 		},
 	}
@@ -90,7 +90,7 @@ func TestMarshalMapTransformer_map(t *testing.T) {
 
 func TestMarshalMapTransformer_MarshalToBytes(t *testing.T) {
 	opts := &MarshalOptions{
-		ApplicationMarshalTransformers: []MarshalTransformerFn{
+		LateMarshalTransformers: []MarshalTransformerFn{
 			MarshalMapTransformer,
 		},
 	}

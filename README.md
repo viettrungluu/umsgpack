@@ -37,15 +37,21 @@ stream the data for the `type` need not precede the data for `data`.)
 
 An object is marshalled in the following order (the process terminates when the object is
 marshalled):
-* First, if an object is a supported built-in type, then it marshalled as such.
+* TODO: First, early *transformers* are applied, in order. Each transformer has the opportunity to
+  transform the object to some new object (with the result passed to the next transformer).
+* Then, if the object (possibly transformed by early transformers) is a supported built-in type,
+  then it marshalled as such.
   * This includes the built-in unresolved extension type (consisting of the extension type and
     data).
   * This also includes standard extension types (currently just the timestamp extension type for
-    `time.Time`).
-* Next, *transformers* are applied, in order. Each transformer has the opportunity to transform the
-  object to some new object (with the result passed to the next transformer).
-* Finally, the resulting (possibly-transformed) object is marshalled as a supported built-in type,
-  if possible.
+    `time.Time`). TODO: move this to a transformer.
+  * TODO: add support for all arrays and maps.
+* Next, late transformers are applied.
+  * TODO: add a standard transformer for structs (or maybe this could/should also be an early
+    transformer).
+  * TODO: or maybe we don't need late transformers at all.
+* Finally, the resulting object (possibly transformed by late transformers) is marshalled as a
+  supported built-in type, if possible.
   * If not possible, then marshalling the object is not supported.
 (The above is applied recursively for container objects when required.)
 
@@ -61,6 +67,8 @@ TODO: examples (arrays, maps, structs)
 * It is in alpha, but the design is rapidly crystalizing. Additional changes are expected to be
   largely additive.
 * Decoding (unmarshalling) is supported.
+  * The design for extensions is still somewhat in flux.
 * Encoding (marshalling) is supported.
-  * Ergonomic encoding of arrays (other than `[]any`), maps (other than `map[any]any`), and structs
-    is not yet supported.
+  * The design is still somewhat in flux.
+  * Ergonomic encoding of arrays (other than `[]any`) and maps (other than `map[any]any`) is
+    available via standard transformers; structs are not yet supported.
