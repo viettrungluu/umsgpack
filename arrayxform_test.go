@@ -6,6 +6,7 @@
 package umsgpack_test
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 
@@ -36,6 +37,18 @@ func TestMarshalArrayTransformer_slice(t *testing.T) {
 	testMarshalArrayTransformer(t, "int slice", []int{1, 2, 3}, nil, []any{1, 2, 3})
 	testMarshalArrayTransformer(t, "string slice", []string{"hello", "world"}, nil, []any{"hello", "world"})
 	testMarshalArrayTransformer(t, "empty slice", []struct{}{}, nil, []any{})
+}
+
+func TestMarshalArrayTransformer_MarshalToBytes(t *testing.T) {
+	opts := &MarshalOptions{
+		ApplicationMarshalObjectTransformers: []MarshalObjectTransformerFn{
+			MarshalArrayTransformer,
+		},
+	}
+
+	if encoded, err := MarshalToBytes(opts, []string{"0", "1", "2"}); err != nil || bytes.Compare(encoded, append([]byte{0x93}, genArrayData(3)...)) != 0 {
+		t.Errorf("Unexpected result from MarshalToBytes: %v, %v", encoded, err)
+	}
 }
 
 // TODO: add test of MarshalArrayTransformer + Marshal.
