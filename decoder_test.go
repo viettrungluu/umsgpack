@@ -610,3 +610,22 @@ func TestUnmarshal_timestampExtensionOverride(t *testing.T) {
 	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
 	testUnmarshal(t, opts, timestampExtensionOverrideUnmarshalTestCases)
 }
+
+func TestUnmarshalBytes(t *testing.T) {
+	opts := &UnmarshalOptions{
+		ApplicationUnmarshalExtensions: map[int]UnmarshalExtensionTypeFn{
+			// 34: just unmarshals to a string.
+			34: func(data []byte) (any, bool, error) {
+				return string(data), true, nil
+			},
+		},
+	}
+
+	if decoded, err := UnmarshalBytes(opts, []byte{0xc7, 0x02, 0x22, 0x68, 0x69}); err != nil || decoded != "hi" {
+		t.Errorf("Unexpected result from UnmarshalBytes: %v, %v", decoded, err)
+	}
+
+	if decoded, err := UnmarshalBytes(opts, []byte{0xc1}); err != InvalidFormatError {
+		t.Errorf("Unexpected result from UnmarshalBytes: %v, %v", decoded, err)
+	}
+}
