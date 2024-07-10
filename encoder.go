@@ -71,7 +71,8 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
 	// ApplicationMarshalObjectTransformers is any array of application-specific transformers,
-	// which will be applied in order.
+	// which all will be applied in order (in a chained way, i.e., passing the result of one to
+	// the next).
 	ApplicationMarshalObjectTransformers []MarshalObjectTransformerFn
 }
 
