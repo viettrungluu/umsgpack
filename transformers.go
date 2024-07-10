@@ -11,8 +11,8 @@ import (
 
 // MarshalArrayTransformer -------------------------------------------------------------------------
 
-// MarshalArrayTransformer is a transformer (MarshalObjectTransformerFn) that transforms any array
-// or slice to a []any.
+// MarshalArrayTransformer is a transformer (MarshalTransformerFn) that transforms any array or
+// slice to a []any.
 func MarshalArrayTransformer(obj any) (any, error) {
 	if kind := reflect.TypeOf(obj).Kind(); kind != reflect.Array && kind != reflect.Slice {
 		return obj, nil
@@ -27,11 +27,11 @@ func MarshalArrayTransformer(obj any) (any, error) {
 	return rv, nil
 }
 
-var _ MarshalObjectTransformerFn = MarshalArrayTransformer
+var _ MarshalTransformerFn = MarshalArrayTransformer
 
 // MarshalMapTransformer ---------------------------------------------------------------------------
 
-// MarshalMapTransformer is a transformer (MarshalObjectTransformerFn) that transforms any map to a
+// MarshalMapTransformer is a transformer (MarshalTransformerFn) that transforms any map to a
 // map[any]any.
 func MarshalMapTransformer(obj any) (any, error) {
 	if kind := reflect.TypeOf(obj).Kind(); kind != reflect.Map {
@@ -46,4 +46,4 @@ func MarshalMapTransformer(obj any) (any, error) {
 	return rv, nil
 }
 
-var _ MarshalObjectTransformerFn = MarshalMapTransformer
+var _ MarshalTransformerFn = MarshalMapTransformer

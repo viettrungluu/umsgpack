@@ -20,7 +20,7 @@ type transformerTestCase struct {
 	expectedOut any
 }
 
-func testTransformer(t *testing.T, xform MarshalObjectTransformerFn, tCs []transformerTestCase) {
+func testTransformer(t *testing.T, xform MarshalTransformerFn, tCs []transformerTestCase) {
 	for _, tC := range tCs {
 		if actualOut, actualErr := xform(tC.obj); actualErr != tC.expectedErr {
 			t.Errorf("%v: incorrect error: actual=%v, expected=%v", tC.name, actualErr, tC.expectedErr)
@@ -59,7 +59,7 @@ func TestMarshalArrayTransformer_slice(t *testing.T) {
 
 func TestMarshalArrayTransformer_MarshalToBytes(t *testing.T) {
 	opts := &MarshalOptions{
-		ApplicationMarshalObjectTransformers: []MarshalObjectTransformerFn{
+		ApplicationMarshalTransformers: []MarshalTransformerFn{
 			MarshalArrayTransformer,
 		},
 	}
@@ -90,7 +90,7 @@ func TestMarshalMapTransformer_map(t *testing.T) {
 
 func TestMarshalMapTransformer_MarshalToBytes(t *testing.T) {
 	opts := &MarshalOptions{
-		ApplicationMarshalObjectTransformers: []MarshalObjectTransformerFn{
+		ApplicationMarshalTransformers: []MarshalTransformerFn{
 			MarshalMapTransformer,
 		},
 	}
