@@ -51,11 +51,12 @@ var DefaultMarshalOptions = &MarshalOptions{}
 //   - map[any]any to the most compact map format (fixmap, map {16,32}) possible
 //   - *UnresolvedExtensionType to the most compact extension format (fixext {1,2,4,8,16}, ext
 //     {8,16,32}) possible
-//   - types transformed by the standard transformer to the above (unless
-//     opts.DisableStandardTransformer is set); currently, this just effectively marshals time.Time
-//     to the timestamp extension (type -1), using the most compact format possible (timestamp
-//     {32,64,96}, as fixext {4,8}/ext 8, respectively)
-//   - types transformed by the application transformer (opts.ApplicationTransformer) to the above
+//   - types transformed by the standard marshal transformer to the above (unless
+//     opts.DisableStandardMarshalTransformer is set); currently, this just effectively marshals
+//     time.Time to the timestamp extension (type -1), using the most compact format possible
+//     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
+//   - types transformed by the application marshal transformer (opts.ApplicationMarshalTransformer)
+//     to the above
 func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions
@@ -75,12 +76,12 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// If set, then the standard transformer is not run.
-	DisableStandardTransformer bool
+	// If set, then the standard marshal transformer is not run.
+	DisableStandardMarshalTransformer bool
 
-	// ApplicationTransformer is a transformer run on the object before marshalling. This
-	// transformer is run before the standard transformer.
-	ApplicationTransformer TransformerFn
+	// ApplicationMarshalTransformer is a marshal transformer run on objects before marshalling.
+	// This is run before the standard marshal transformer.
+	ApplicationMarshalTransformer TransformerFn
 }
 
 // Marshaller --------------------------------------------------------------------------------------
@@ -93,15 +94,15 @@ type marshaller struct {
 
 // marshalObject marshals an object.
 func (m *marshaller) marshalObject(obj any) error {
-	if m.opts.ApplicationTransformer != nil {
+	if m.opts.ApplicationMarshalTransformer != nil {
 		var err error
-		obj, err = m.opts.ApplicationTransformer(obj)
+		obj, err = m.opts.ApplicationMarshalTransformer(obj)
 		if err != nil {
 			return err
 		}
 	}
 
-	if !m.opts.DisableStandardTransformer {
+	if !m.opts.DisableStandardMarshalTransformer {
 		var err error
 		obj, err = StandardMarshalTransformer(obj)
 		if err != nil {

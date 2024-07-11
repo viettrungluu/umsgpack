@@ -403,7 +403,7 @@ var defaultOptsMarshalTestCases = []marshalTestCase{
 	{obj: testMarshalType5(0), err: UnsupportedTypeForMarshallingError},
 }
 
-var applicationTransformerMarshalTestCases = []marshalTestCase{
+var applicationMarshalTransformerMarshalTestCases = []marshalTestCase{
 	// *** testMarshalType1
 	{obj: testMarshalType1("oops"), err: testError},
 	// fixext 1: 11010100: 0xd4
@@ -820,9 +820,9 @@ func TestMarshal_defaultOpts(t *testing.T) {
 
 var testError = errors.New("test error")
 
-func TestMarshal_applicationTransformer(t *testing.T) {
+func TestMarshal_applicationMarshalTransformer(t *testing.T) {
 	opts := &MarshalOptions{
-		ApplicationTransformer: ComposeTransformers(
+		ApplicationMarshalTransformer: ComposeTransformers(
 			func(obj any) (any, error) {
 				if t, ok := obj.(testMarshalType1); ok {
 					if t == "oops" {
@@ -863,13 +863,13 @@ func TestMarshal_applicationTransformer(t *testing.T) {
 		),
 	}
 	testMarshal(t, opts, commonMarshalTestCases)
-	testMarshal(t, opts, applicationTransformerMarshalTestCases)
+	testMarshal(t, opts, applicationMarshalTransformerMarshalTestCases)
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
 
 func TestMarshalToBytes(t *testing.T) {
 	opts := &MarshalOptions{
-		ApplicationTransformer: func(obj any) (any, error) {
+		ApplicationMarshalTransformer: func(obj any) (any, error) {
 			if t, ok := obj.(testMarshalType1); ok {
 				return &UnresolvedExtensionType{
 					ExtensionType: 12,
@@ -890,5 +890,5 @@ func TestMarshalToBytes(t *testing.T) {
 	}
 }
 
-// TODO: test DisableStandardTransformer option.
+// TODO: test DisableStandardMarshalTransformer option.
 // TODO: test TimestampExtensionMarshalTransformer.
