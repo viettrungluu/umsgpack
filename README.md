@@ -37,29 +37,18 @@ stream the data for the `type` need not precede the data for `data`.)
 
 An object is marshalled in the following order (the process terminates when the object is
 marshalled):
-* TODO: First, early *transformers* are applied, in order. Each transformer has the opportunity to
-  transform the object to some new object (with the result passed to the next transformer).
-* Then, if the object (possibly transformed by early transformers) is a supported built-in type,
-  then it marshalled as such.
-  * This includes the built-in unresolved extension type (consisting of the extension type and
-    data).
-  * This also includes standard extension types (currently just the timestamp extension type for
+* First, the transformer (if any) is applied. This may transform the object to some new (presumably
+  marshallable) object.
+  * Note that transformers can easily be composed.
+* Then the (possibly-transformed) object is marshalled, if it is of a supported type.
+  * Supported types include basic types, along with arrays, slices, and maps (of supported types).
+  * The unresolved extension type (consisting of the extension type and data) is also supported.
+  * Standard extension types are also supported (currently just the timestamp extension type for
     `time.Time`). TODO: move this to a transformer.
-  * TODO: add support for all arrays and maps.
-* Next, late transformers are applied.
-  * TODO: add a standard transformer for structs (or maybe this could/should also be an early
-    transformer).
-  * TODO: or maybe we don't need late transformers at all.
-* Finally, the resulting object (possibly transformed by late transformers) is marshalled as a
-  supported built-in type, if possible.
-  * If not possible, then marshalling the object is not supported.
+* If the (possibly-transformed) object is not of a supported type, then marshalling fails.
 (The above is applied recursively for container objects when required.)
 
-It would be more logical and powerful to apply transformers first, and not have to repeat the
-marshalling process for supported built-in types. However, I expect applying transformers to
-possibly be slow, since it often involves reflection.
-
-TODO: examples (arrays, maps, structs)
+TODO: examples (structs)
 
 ## Current status
 

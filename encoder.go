@@ -53,7 +53,7 @@ var DefaultMarshalOptions = &MarshalOptions{}
 //     {8,16,32}) possible
 //   - time.Time to the timestamp extension (type -1), using the most compact format possible
 //     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
-//   - types transformed by transformers (opts.LateTransformers) to the above
+//   - types transformed by the transformer (opts.Transformer) to the above
 func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions
@@ -73,11 +73,8 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// LateTransformers is any array of application-specific transformers, that will all be
-	// applied in order (in a chained way, i.e., passing the result of one to the next) if an
-	// object isn't a standard, supported object for marshalling; the result will then be
-	// marshalled, if possible.
-	LateTransformers []TransformerFn
+	// Transformer is a transformer run on the object before marshalling.
+	Transformer TransformerFn
 }
 
 // Marshaller --------------------------------------------------------------------------------------
@@ -90,12 +87,15 @@ type marshaller struct {
 
 // marshalObject marshals an object.
 func (m *marshaller) marshalObject(obj any) error {
-	if err := m.marshalStandardObject(obj); err != UnsupportedTypeForMarshallingError {
-		return err
+	if m.opts.Transformer != nil {
+		var err error
+		obj, err = m.opts.Transformer(obj)
+		if err != nil {
+			return err
+		}
 	}
 
-	obj, err := m.runTransformers(m.opts.LateTransformers, obj)
-	if err != nil {
+	if err := m.marshalStandardObject(obj); err != UnsupportedTypeForMarshallingError {
 		return err
 	}
 
@@ -160,18 +160,6 @@ func (m *marshaller) marshalStandardObject(obj any) error {
 	}
 
 	return UnsupportedTypeForMarshallingError
-}
-
-// runTransformers runs the given transformers on an object.
-func (m *marshaller) runTransformers(xforms []TransformerFn, obj any) (any, error) {
-	for _, xform := range xforms {
-		var err error
-		obj, err = xform(obj)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return obj, nil
 }
 
 // marshalNil marshals a nil.

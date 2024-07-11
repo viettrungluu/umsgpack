@@ -24,3 +24,18 @@ package umsgpack
 // It may determine applicability however it wants (e.g., based on type, on reflection, or on
 // nothing at all).
 type TransformerFn func(obj any) (any, error)
+
+// ComposeTransformers produces a single transformer from the given transformers (executing them in
+// argument order).
+func ComposeTransformers(xforms ...TransformerFn) TransformerFn {
+	return func(obj any) (any, error) {
+		for _, xform := range xforms {
+			var err error
+			obj, err = xform(obj)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return obj, nil
+	}
+}
