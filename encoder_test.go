@@ -328,6 +328,23 @@ var commonMarshalTestCases = []marshalTestCase{
 	// ext 32: 11001001: 0xc9
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(math.MaxUint16 + 1)}, encoded: append([]byte{0xc9, 0x00, 0x01, 0x00, 0x00, 0x12}, fillerBytes(math.MaxUint16+1)...)},
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(99999)}, encoded: append([]byte{0xc9, 0x00, 0x01, 0x86, 0x9f, 0x12}, fillerBytes(99999)...)},
+	// *** []string
+	// fixarray: 1001xxxx: 0x90 - 0x9f
+	{obj: []string{}, encoded: []byte{0x90}},
+	{obj: genTypedArray(1), encoded: append([]byte{0x91}, genArrayData(1)...)},
+	{obj: genTypedArray(2), encoded: append([]byte{0x92}, genArrayData(2)...)},
+	{obj: genTypedArray(0xf), encoded: append([]byte{0x9f}, genArrayData(0xf)...)},
+	// array 16: 11011100: 0xdc
+	{obj: genTypedArray(0x10), encoded: append([]byte{0xdc, 0x00, 0x10}, genArrayData(0x10)...)},
+	{obj: genTypedArray(0xffff), encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(0xffff)...)},
+	// array 32: 11011101: 0xdd
+	{obj: genTypedArray(0x10000), encoded: append([]byte{0xdd, 0x00, 0x01, 0x00, 0x00}, genArrayData(0x10000)...)},
+	{obj: genTypedArray(99999), encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0x9f}, genArrayData(99999)...)},
+	// *** [n]string
+	// fixarray: 1001xxxx: 0x90 - 0x9f
+	{obj: [0]string{}, encoded: []byte{0x90}},
+	{obj: [4]string{"0", "1", "2", "3"}, encoded: append([]byte{0x94}, genArrayData(4)...)},
+	// (skip testing other formats; should be handled like slices)
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), encoded: []byte{0xd6, 0xff, 0x00, 0x00, 0x00, 0x00}},
@@ -727,6 +744,20 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 5},
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 6},
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 123461},
+	// *** []string
+	// fixarray: 1001xxxx: 0x90 - 0x9f
+	{obj: genTypedArray(12), errAt: 0},
+	{obj: genTypedArray(12), errAt: 1},
+	// array 16: 11011100: 0xdc
+	{obj: genTypedArray(42), errAt: 0},
+	{obj: genTypedArray(42), errAt: 1},
+	{obj: genTypedArray(42), errAt: 2},
+	{obj: genTypedArray(42), errAt: 3},
+	// array 32: 11011101: 0xdd
+	{obj: genTypedArray(123456), errAt: 0},
+	{obj: genTypedArray(123456), errAt: 1},
+	{obj: genTypedArray(123456), errAt: 4},
+	{obj: genTypedArray(123456), errAt: 5},
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), errAt: 0},

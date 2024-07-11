@@ -47,6 +47,15 @@ func genArray(n int) []any {
 	return rv
 }
 
+// genTypedArray generates a strongly-typed test array (slice) with n entries; matches genArrayData.
+func genTypedArray(n int) []string {
+	rv := []string{}
+	for i := 0; i < n; i += 1 {
+		rv = append(rv, strconv.Itoa(i))
+	}
+	return rv
+}
+
 // genMapData generates test map (encoded) data with n key-value pairs; matches genMap.
 func genMapData(n int) []byte {
 	rv := []byte{}

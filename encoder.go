@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"reflect"
 	"time"
 )
 
@@ -162,6 +163,12 @@ func (m *marshaller) marshalStandardObject(obj any) error {
 		return m.marshalTimestampExtensionType(v)
 	}
 
+	switch reflect.TypeOf(obj).Kind() {
+	case reflect.Array, reflect.Slice:
+		return m.marshalArrayOrSlice(obj)
+		// TODO: Map.
+	}
+
 	return UnsupportedTypeForMarshallingError
 }
 
@@ -307,6 +314,34 @@ func (m *marshaller) marshalArray(a []any) error {
 	}
 	for _, v := range a {
 		if err := m.marshalObject(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// marshalArrayOrSlice marshals an array or slice.
+func (m *marshaller) marshalArrayOrSlice(obj any) error {
+	v := reflect.ValueOf(obj)
+	u := v.Len()
+	switch {
+	case u <= (0x9f - 0x90): // fixarray: 1001xxxx: 0x90 - 0x9f
+		if err := m.write(byte(0x90 + u)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint16: // array 16: 11011100: 0xdc
+		if err := m.write(0xdc, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint32: // array 32: 11011101: 0xdd
+		if err := m.write(0xdd, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	default:
+		return ObjectTooBigForMarshallingError
+	}
+	for i := 0; i < u; i += 1 {
+		if err := m.marshalObject(v.Index(i).Interface()); err != nil {
 			return err
 		}
 	}
