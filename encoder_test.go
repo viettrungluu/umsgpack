@@ -822,7 +822,7 @@ var testError = errors.New("test error")
 
 func TestMarshal_applicationMarshalTransformer(t *testing.T) {
 	opts := &MarshalOptions{
-		ApplicationMarshalTransformer: ComposeTransformers(
+		ApplicationMarshalTransformer: ComposeMarshalTransformers(
 			func(obj any) (any, error) {
 				if t, ok := obj.(testMarshalType1); ok {
 					if t == "oops" {
@@ -891,4 +891,5 @@ func TestMarshalToBytes(t *testing.T) {
 }
 
 // TODO: test DisableStandardMarshalTransformer option.
+// TODO: test ComposeMarshalTransformers.
 // TODO: test TimestampExtensionMarshalTransformer.

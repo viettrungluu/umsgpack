@@ -81,8 +81,21 @@ type MarshalOptions struct {
 
 	// ApplicationMarshalTransformer is a marshal transformer run on objects before marshalling.
 	// This is run before the standard marshal transformer.
-	ApplicationMarshalTransformer TransformerFn
+	ApplicationMarshalTransformer MarshalTransformerFn
 }
+
+// A MarshalTransformerFn transforms an object for marshalling.
+//
+// It typically transforms some unsupported (e.g., nonstandard or not built-in) type to a
+// marshallable type. (E.g., to support the timestamp extension,
+// TimestampExtensionMarshalTransformer transforms time.Time to *UnresolvedExtensionType with
+// ExtensionType -1.)
+//
+// If the transformer does not apply, it should just return the object as-is and no error. If it
+// applies, it should return the transformed object, but may also return an error if there is some
+// fatal problem. It may determine applicability however it wants (e.g., based on type, on
+// reflection, or on nothing at all).
+type MarshalTransformerFn func(obj any) (any, error)
 
 // Marshaller --------------------------------------------------------------------------------------
 
@@ -428,7 +441,22 @@ func (m *marshaller) write(data ...byte) error {
 	return err
 }
 
-// Standard marshal transformers -------------------------------------------------------------------
+// Marshal transformers ----------------------------------------------------------------------------
+
+// ComposeMarshalTransformers produces a single marshal transformer from the given marshal
+// transformers (executing them in argument order).
+func ComposeMarshalTransformers(xforms ...MarshalTransformerFn) MarshalTransformerFn {
+	return func(obj any) (any, error) {
+		for _, xform := range xforms {
+			var err error
+			obj, err = xform(obj)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return obj, nil
+	}
+}
 
 // StandardMarshalTransformer is the standard transformer run by Marshal (after the
 var StandardMarshalTransformer = TimestampExtensionMarshalTransformer
