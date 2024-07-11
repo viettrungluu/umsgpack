@@ -93,21 +93,44 @@ type UnmarshalOptions struct {
 	// unmarshalled/preserved faithfully as *UnresolvedExtensionTypes.
 	EnableUnsupportedExtensionTypeError bool
 
+	// If set, then the standard unmarshal transformer will not be run.
+	DisableStandardUnmarshalTransformer bool
+
+	// ApplicationUnmarshalTransformer is a marshal transformer run on objects after
+	// unmarshalling (and after the standard unmarshal transformer).
+	// This is run before the standard marshal transformer.
+	ApplicationUnmarshalTransformer UnmarshalTransformerFn
+
 	// ApplicationUnmarshalExtensions is a map from any extension types (-128 to 127) to the
 	// corresponding UnmarshalExtensionTypeFn.
 	//
 	// Application-specific extension types are in the range 0 to 127, but this can also be used
 	// to support new standard extension types not yet supported by umsgpack or to override
-	// built-insupport.
-	// (0-127) to the corresponding UnmarshalExtensionTypeFn.
+	// built-in support.
+	//
+	// TODO: deprecate/remove (replace with support on top of transformers).
 	ApplicationUnmarshalExtensions map[int]UnmarshalExtensionTypeFn
 }
+
+// An UnmarshalTransformerFn transforms an object after unmarshalling.
+//
+// It typically transforms *UnresolvedExtensionType to some more standard/concrete type. (E.g., to
+// support the timestamp extension, TimestampExtensionUnmarshalTransformer transforms
+// *UnresolvedExtensionType with ExtensionType -1 to time.Time.)
+//
+// If the transformer does not apply, it should just return its arguments as-is and no error. If it
+// applies, it should return the transformed object and whether the transformed object may be a map
+// key, but may also return an error if there is some fatal problem. It may determine applicability
+// however it wants (e.g., based on type, on reflection, or on nothing at all).
+type UnmarshalTransformerFn func(obj any, mapKeySupported bool) (any, bool, error)
 
 // An UnmarshalExtensionTypeFn unmarshals the given data for a (fixed, known) extension type. It may
 // keep a reference to the data (i.e., it need not copy it).
 //
 // It either returns an error, or on success the object and a boolean indicating if the value is a
 // valid map key (for a map[any]any).
+//
+// TODO: make this part of some helper.
 type UnmarshalExtensionTypeFn func(data []byte) (object any, mapKeySupported bool, err error)
 
 // unmarshaller ------------------------------------------------------------------------------------
@@ -118,12 +141,34 @@ type unmarshaller struct {
 	r    io.Reader
 }
 
-// unmarshalObject unmarshals an object (the next byte is expected to be the format).
+// unmarshalObject unmarshals an object. The next byte is expected to be the format.
 //
 // Note: All internal unmarshal functions are like an UnmarshalExtensionTypeFn and return either an
 // error, or on success the object and a boolean indicating if the value is a valid map key (for a
 // map[any]any).
-func (u *unmarshaller) unmarshalObject() (any, bool, error) {
+func (u *unmarshaller) unmarshalObject() (obj any, mapKeySupported bool, err error) {
+	obj, mapKeySupported, err = u.unmarshalStandardObject()
+	if err != nil {
+		return
+	}
+
+	if !u.opts.DisableStandardUnmarshalTransformer {
+		obj, mapKeySupported, err = StandardUnmarshalTransformer(obj, mapKeySupported)
+		if err != nil {
+			return
+		}
+	}
+
+	if u.opts.ApplicationUnmarshalTransformer != nil {
+		obj, mapKeySupported, err = u.opts.ApplicationUnmarshalTransformer(obj, mapKeySupported)
+	}
+
+	return
+}
+
+// unmarshalStandardObject unmarshals an object to a standard (built-in) object (i.e., without
+// applying transformers).
+func (u *unmarshaller) unmarshalStandardObject() (any, bool, error) {
 	b, err := u.readByte()
 	if err != nil {
 		return nil, false, err
@@ -452,7 +497,8 @@ var standardUnmarshalExtensions = map[int]UnmarshalExtensionTypeFn{
 	-1: unmarshalTimestampExtensionType,
 }
 
-// InvalidTimestampError is the error returned for an invalid timestamp.
+// InvalidTimestampError is the error returned by TimestampExtensionUnmarshalTransformer for an
+// invalid timestamp.
 var InvalidTimestampError = errors.New("Invalid timestamp")
 
 // unmarshalTimestampExtensionType is an UnmarshalExtensionTypeFn that unmarshals the standard (-1)
@@ -480,4 +526,15 @@ func unmarshalTimestampExtensionType(data []byte) (any, bool, error) {
 	default:
 		return nil, false, InvalidTimestampError
 	}
+}
+
+// Unmarshal transformers --------------------------------------------------------------------------
+
+// TODO: compose.
+
+// StandardUnmarshalTransformer is the standard unmarshal transformer run by Unmarshal (before the
+// application unmarshal transformer, if any).
+var StandardUnmarshalTransformer UnmarshalTransformerFn = func(obj any, mapKeySupported bool) (any, bool, error) {
+	// TODO
+	return obj, mapKeySupported, nil
 }

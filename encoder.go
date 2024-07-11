@@ -76,11 +76,11 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// If set, then the standard marshal transformer is not run.
+	// If set, then the standard marshal transformer will not be run.
 	DisableStandardMarshalTransformer bool
 
-	// ApplicationMarshalTransformer is a marshal transformer run on objects before marshalling.
-	// This is run before the standard marshal transformer.
+	// ApplicationMarshalTransformer is a marshal transformer run on objects before marshalling
+	// (and before the standard marshal transformer).
 	ApplicationMarshalTransformer MarshalTransformerFn
 }
 
@@ -459,10 +459,10 @@ func ComposeMarshalTransformers(xforms ...MarshalTransformerFn) MarshalTransform
 }
 
 // StandardMarshalTransformer is the standard transformer run by Marshal (after the
-var StandardMarshalTransformer = TimestampExtensionMarshalTransformer
+var StandardMarshalTransformer MarshalTransformerFn = TimestampExtensionMarshalTransformer
 
-// TimestampExtensionMarshalTransformer supports the standard (-1) timestamp extension type by
-// transforming time.Time to a minimal *UnresolvedExtensionType.
+// TimestampExtensionMarshalTransformer is a MarshalTransformerFn supporting the standard (-1)
+// timestamp extension type by transforming time.Time to a minimal *UnresolvedExtensionType.
 func TimestampExtensionMarshalTransformer(obj any) (any, error) {
 	t, ok := obj.(time.Time)
 	if !ok {
@@ -490,3 +490,5 @@ func TimestampExtensionMarshalTransformer(obj any) (any, error) {
 
 	return &UnresolvedExtensionType{ExtensionType: -1, Data: data}, nil
 }
+
+var _ MarshalTransformerFn = TimestampExtensionMarshalTransformer
