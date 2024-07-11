@@ -6,7 +6,7 @@ A tiny (micro), simple implementation of [MessagePack](https://msgpack.org/)
 Unlike other Go implementations of MessagePack, it more closely adheres to MessagePack's weak type
 system. This has advantages and disadvantages, as discussed below.
 
-## Unmarshalling design
+## Unmarshalling
 
 umsgpack unmarshals to weakly-typed data (e.g., MessagePack maps are unmarshalled as `map[any]any`).
 This is especially useful if you frequently have to consume data originating from weakly-typed
@@ -33,7 +33,16 @@ strong type based on `type`. It's hard to design/build an unmarshaller that hand
 variadic-type situations simply, much less efficiently. (E.g., one complication is that in the input
 stream the data for the `type` need not precede the data for `data`.)
 
-## Marshalling design
+That said, simple transformation of unmarshalled objects is supported:
+* This is mainly to support unmarshalling extension types.
+* For example, unresolved extension type -1 (the timestamp extension) is transformed to `time.Time`.
+* This could also be used to emit an error if an unsupported extension type is encountered.
+* It could also be used to validate the `string`s are valid UTF-8.
+The difference is that the transformation is not aware of context: it only has the unmarshalled
+object to work with (i.e., its type and data), whereas context is very much needed to convert to
+structs.
+
+## Marshalling
 
 An object is marshalled in the following order (the process terminates when the object is
 marshalled):
@@ -62,8 +71,5 @@ flexibility and capability, one may want to use a package like
 * It is in alpha, but the design is rapidly crystalizing. Additional changes are expected to be
   largely additive.
 * Decoding (unmarshalling) is supported.
-  * The design for extensions is still somewhat in flux.
 * Encoding (marshalling) is supported.
-  * The design is still somewhat in flux.
-  * Ergonomic encoding of arrays (other than `[]any`) and maps (other than `map[any]any`) is
-    available via standard transformers; structs are not yet supported.
+  * Ergonomic encoding of structs is not yet supported.
