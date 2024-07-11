@@ -165,8 +165,9 @@ func (m *marshaller) marshalStandardObject(obj any) error {
 
 	switch reflect.TypeOf(obj).Kind() {
 	case reflect.Array, reflect.Slice:
-		return m.marshalArrayOrSlice(obj)
-		// TODO: Map.
+		return m.marshalGenericArrayOrSlice(obj)
+	case reflect.Map:
+		return m.marshalGenericMap(obj)
 	}
 
 	return UnsupportedTypeForMarshallingError
@@ -320,8 +321,8 @@ func (m *marshaller) marshalArray(a []any) error {
 	return nil
 }
 
-// marshalArrayOrSlice marshals an array or slice.
-func (m *marshaller) marshalArrayOrSlice(obj any) error {
+// marshalGenericArrayOrSlice marshals a generic array or slice (i.e., not just []any).
+func (m *marshaller) marshalGenericArrayOrSlice(obj any) error {
 	v := reflect.ValueOf(obj)
 	u := v.Len()
 	switch {
@@ -372,6 +373,37 @@ func (m *marshaller) marshalMap(kvs map[any]any) error {
 			return err
 		}
 		if err := m.marshalObject(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// marshalGenericMap marshals a generic map (i.e., not just map[any]any).
+func (m *marshaller) marshalGenericMap(obj any) error {
+	v := reflect.ValueOf(obj)
+	u := v.Len()
+	switch {
+	case u <= (0x8f - 0x80): // fixmap: 1000xxxx: 0x80 - 0x8f
+		if err := m.write(byte(0x80 + u)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint16: // map 16: 11011110: 0xde
+		if err := m.write(0xde, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	case u <= math.MaxUint32: // map 32: 11011111: 0xdf
+		if err := m.write(0xdf, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+			return err
+		}
+	default:
+		return ObjectTooBigForMarshallingError
+	}
+	for it := v.MapRange(); it.Next(); {
+		if err := m.marshalObject(it.Key().Interface()); err != nil {
+			return err
+		}
+		if err := m.marshalObject(it.Value().Interface()); err != nil {
 			return err
 		}
 	}

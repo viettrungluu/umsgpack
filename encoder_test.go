@@ -345,6 +345,19 @@ var commonMarshalTestCases = []marshalTestCase{
 	{obj: [0]string{}, encoded: []byte{0x90}},
 	{obj: [4]string{"0", "1", "2", "3"}, encoded: append([]byte{0x94}, genArrayData(4)...)},
 	// (skip testing other formats; should be handled like slices)
+	// *** map[string]int
+	// fixmap: 1000xxxx: 0x80 - 0x8f
+	{obj: map[string]int{}, encoded: []byte{0x80}},
+	{obj: genTypedMap(1), encoded: append([]byte{0x81}, genMapData(1)...)},
+	// TODO: comparing decoded doesn't work!
+	// {obj: genTypedMap(2), encoded: []byte{0x82}, prefix: true},
+	// {obj: genTypedMap(0xf), encoded: []byte{0x8f}, prefix: true},
+	// map 16: 11011110: 0xde
+	// {obj: genTypedMap(0x10), encoded: []byte{0xde, 0x00, 0x10}, prefix: true},
+	// {obj: genTypedMap(0xffff), encoded: []byte{0xde, 0xff, 0xff}, prefix: true},
+	// map 32: 11011111: 0xdf
+	// {obj: genTypedMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true},
+	// {obj: genTypedMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true},
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), encoded: []byte{0xd6, 0xff, 0x00, 0x00, 0x00, 0x00}},
@@ -758,6 +771,26 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: genTypedArray(123456), errAt: 1},
 	{obj: genTypedArray(123456), errAt: 4},
 	{obj: genTypedArray(123456), errAt: 5},
+	// *** map[string]int
+	// fixmap: 1000xxxx: 0x80 - 0x8f
+	{obj: genTypedMap(12), errAt: 0},
+	{obj: genTypedMap(12), errAt: 1},
+	{obj: genTypedMap(12), errAt: 2},
+	{obj: genTypedMap(12), errAt: 3},
+	// map 16: 11011110: 0xde
+	{obj: genTypedMap(42), errAt: 0},
+	{obj: genTypedMap(42), errAt: 1},
+	{obj: genTypedMap(42), errAt: 2},
+	{obj: genTypedMap(42), errAt: 3},
+	{obj: genTypedMap(42), errAt: 4},
+	{obj: genTypedMap(42), errAt: 5},
+	// map 32: 11011111: 0xdf
+	{obj: genTypedMap(123456), errAt: 0},
+	{obj: genTypedMap(123456), errAt: 1},
+	{obj: genTypedMap(123456), errAt: 4},
+	{obj: genTypedMap(123456), errAt: 5},
+	{obj: genTypedMap(123456), errAt: 6},
+	{obj: genTypedMap(123456), errAt: 7},
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), errAt: 0},
