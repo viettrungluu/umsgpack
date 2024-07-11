@@ -37,18 +37,24 @@ stream the data for the `type` need not precede the data for `data`.)
 
 An object is marshalled in the following order (the process terminates when the object is
 marshalled):
-* First, the transformer (if any) is applied. This may transform the object to some new (presumably
-  marshallable) object.
+* First, the application transformer (if any) is applied. This may transform the object to some new
+  (presumably marshallable) object.
   * Note that transformers can easily be composed.
+* Next, unless disabled, the standard transformer is applied.
+  * Currently, this just supports the standard timestamp extension type by transforming `time.Time`.
 * Then the (possibly-transformed) object is marshalled, if it is of a supported type.
   * Supported types include basic types, along with arrays, slices, and maps (of supported types).
   * The unresolved extension type (consisting of the extension type and data) is also supported.
-  * Standard extension types are also supported (currently just the timestamp extension type for
-    `time.Time`). TODO: move this to a transformer.
 * If the (possibly-transformed) object is not of a supported type, then marshalling fails.
 (The above is applied recursively for container objects when required.)
 
-TODO: examples (structs)
+For example, a transformer can support extension types by transforming them to the unresolved
+extension type (which can then be marshalled); this is how the standard transformer supports the
+timestamp extension.
+
+Another example is transforming structs to maps, which can then be marshalled. For maximum
+flexibility and capability, one may want to use a package like
+[mapstructure](https://github.com/go-viper/mapstructure) for such a transformer.
 
 ## Current status
 

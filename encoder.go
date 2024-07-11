@@ -51,9 +51,11 @@ var DefaultMarshalOptions = &MarshalOptions{}
 //   - map[any]any to the most compact map format (fixmap, map {16,32}) possible
 //   - *UnresolvedExtensionType to the most compact extension format (fixext {1,2,4,8,16}, ext
 //     {8,16,32}) possible
-//   - time.Time to the timestamp extension (type -1), using the most compact format possible
-//     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
-//   - types transformed by the transformer (opts.Transformer) to the above
+//   - types transformed by the standard transformer to the above (unless
+//     opts.DisableStandardTransformer is set); currently, this just effectively marshals time.Time
+//     to the timestamp extension (type -1), using the most compact format possible (timestamp
+//     {32,64,96}, as fixext {4,8}/ext 8, respectively)
+//   - types transformed by the application transformer (opts.ApplicationTransformer) to the above
 func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions
@@ -73,8 +75,12 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// Transformer is a transformer run on the object before marshalling.
-	Transformer TransformerFn
+	// If set, then the standard transformer is not run.
+	DisableStandardTransformer bool
+
+	// ApplicationTransformer is a transformer run on the object before marshalling. This
+	// transformer is run before the standard transformer.
+	ApplicationTransformer TransformerFn
 }
 
 // Marshaller --------------------------------------------------------------------------------------
@@ -87,9 +93,17 @@ type marshaller struct {
 
 // marshalObject marshals an object.
 func (m *marshaller) marshalObject(obj any) error {
-	if m.opts.Transformer != nil {
+	if m.opts.ApplicationTransformer != nil {
 		var err error
-		obj, err = m.opts.Transformer(obj)
+		obj, err = m.opts.ApplicationTransformer(obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !m.opts.DisableStandardTransformer {
+		var err error
+		obj, err = StandardMarshalTransformer(obj)
 		if err != nil {
 			return err
 		}
@@ -138,9 +152,6 @@ func (m *marshaller) marshalObject(obj any) error {
 		return m.marshalMap(v)
 	case *UnresolvedExtensionType:
 		return m.marshalExtensionType(int(v.ExtensionType), v.Data)
-	// Standard extension types:
-	case time.Time:
-		return m.marshalTimestampExtensionType(v)
 	}
 
 	switch reflect.TypeOf(obj).Kind() {
@@ -410,9 +421,25 @@ func (m *marshaller) marshalExtensionType(extType int, extData []byte) error {
 	return m.write(extData...)
 }
 
-// marshalTimestampExtensionType marshals a time.Time to the standard (-1) timestamp extension type
-// (in a minimal way).
-func (m *marshaller) marshalTimestampExtensionType(t time.Time) error {
+// write is a helper for calling the io.Writer's Write.
+func (m *marshaller) write(data ...byte) error {
+	_, err := m.w.Write(data)
+	return err
+}
+
+// Standard marshal transformers -------------------------------------------------------------------
+
+// StandardMarshalTransformer is the standard transformer run by Marshal (after the
+var StandardMarshalTransformer = TimestampExtensionMarshalTransformer
+
+// TimestampExtensionMarshalTransformer supports the standard (-1) timestamp extension type by
+// transforming time.Time to a minimal *UnresolvedExtensionType.
+func TimestampExtensionMarshalTransformer(obj any) (any, error) {
+	t, ok := obj.(time.Time)
+	if !ok {
+		return obj, nil
+	}
+
 	sec := t.Unix()
 	nsec := t.Nanosecond()
 	var data []byte
@@ -432,11 +459,5 @@ func (m *marshaller) marshalTimestampExtensionType(t time.Time) error {
 		data = []byte{byte((nsec >> 24) & 0xff), byte((nsec >> 16) & 0xff), byte((nsec >> 8) & 0xff), byte(nsec & 0xff), byte((sec >> 56) & 0xff), byte((sec >> 48) & 0xff), byte((sec >> 40) & 0xff), byte((sec >> 32) & 0xff), byte((sec >> 24) & 0xff), byte((sec >> 16) & 0xff), byte((sec >> 8) & 0xff), byte(sec & 0xff)}
 	}
 
-	return m.marshalExtensionType(-1, data)
-}
-
-// write is a helper for calling the io.Writer's Write.
-func (m *marshaller) write(data ...byte) error {
-	_, err := m.w.Write(data)
-	return err
+	return &UnresolvedExtensionType{ExtensionType: -1, Data: data}, nil
 }
