@@ -296,22 +296,8 @@ func (m *marshaller) marshalBytes(b []byte) error {
 
 // marshalArray marshals a []any (in a minimal way).
 func (m *marshaller) marshalArray(a []any) error {
-	u := len(a)
-	switch {
-	case u <= (0x9f - 0x90): // fixarray: 1001xxxx: 0x90 - 0x9f
-		if err := m.write(byte(0x90 + u)); err != nil {
-			return err
-		}
-	case u <= math.MaxUint16: // array 16: 11011100: 0xdc
-		if err := m.write(0xdc, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
-			return err
-		}
-	case u <= math.MaxUint32: // array 32: 11011101: 0xdd
-		if err := m.write(0xdd, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
-			return err
-		}
-	default:
-		return ObjectTooBigForMarshallingError
+	if err := m.writeArrayPrefix(len(a)); err != nil {
+		return err
 	}
 	for _, v := range a {
 		if err := m.marshalObject(v); err != nil {
@@ -325,6 +311,19 @@ func (m *marshaller) marshalArray(a []any) error {
 func (m *marshaller) marshalGenericArrayOrSlice(obj any) error {
 	v := reflect.ValueOf(obj)
 	u := v.Len()
+	if err := m.writeArrayPrefix(u); err != nil {
+		return err
+	}
+	for i := 0; i < u; i += 1 {
+		if err := m.marshalObject(v.Index(i).Interface()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeArrayPrefix writes the prefix for an array of length u.
+func (m *marshaller) writeArrayPrefix(u int) error {
 	switch {
 	case u <= (0x9f - 0x90): // fixarray: 1001xxxx: 0x90 - 0x9f
 		if err := m.write(byte(0x90 + u)); err != nil {
@@ -341,32 +340,13 @@ func (m *marshaller) marshalGenericArrayOrSlice(obj any) error {
 	default:
 		return ObjectTooBigForMarshallingError
 	}
-	for i := 0; i < u; i += 1 {
-		if err := m.marshalObject(v.Index(i).Interface()); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 // marshalMap marshals a map[any]any (in a minimal way).
 func (m *marshaller) marshalMap(kvs map[any]any) error {
-	u := len(kvs)
-	switch {
-	case u <= (0x8f - 0x80): // fixmap: 1000xxxx: 0x80 - 0x8f
-		if err := m.write(byte(0x80 + u)); err != nil {
-			return err
-		}
-	case u <= math.MaxUint16: // map 16: 11011110: 0xde
-		if err := m.write(0xde, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
-			return err
-		}
-	case u <= math.MaxUint32: // map 32: 11011111: 0xdf
-		if err := m.write(0xdf, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
-			return err
-		}
-	default:
-		return ObjectTooBigForMarshallingError
+	if err := m.writeMapPrefix(len(kvs)); err != nil {
+		return err
 	}
 	for k, v := range kvs {
 		if err := m.marshalObject(k); err != nil {
@@ -382,7 +362,22 @@ func (m *marshaller) marshalMap(kvs map[any]any) error {
 // marshalGenericMap marshals a generic map (i.e., not just map[any]any).
 func (m *marshaller) marshalGenericMap(obj any) error {
 	v := reflect.ValueOf(obj)
-	u := v.Len()
+	if err := m.writeMapPrefix(v.Len()); err != nil {
+		return err
+	}
+	for it := v.MapRange(); it.Next(); {
+		if err := m.marshalObject(it.Key().Interface()); err != nil {
+			return err
+		}
+		if err := m.marshalObject(it.Value().Interface()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeMapPrefix writes the prefix for a map of length u.
+func (m *marshaller) writeMapPrefix(u int) error {
 	switch {
 	case u <= (0x8f - 0x80): // fixmap: 1000xxxx: 0x80 - 0x8f
 		if err := m.write(byte(0x80 + u)); err != nil {
@@ -398,14 +393,6 @@ func (m *marshaller) marshalGenericMap(obj any) error {
 		}
 	default:
 		return ObjectTooBigForMarshallingError
-	}
-	for it := v.MapRange(); it.Next(); {
-		if err := m.marshalObject(it.Key().Interface()); err != nil {
-			return err
-		}
-		if err := m.marshalObject(it.Value().Interface()); err != nil {
-			return err
-		}
 	}
 	return nil
 }
