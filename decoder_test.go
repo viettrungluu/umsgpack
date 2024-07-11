@@ -482,6 +482,7 @@ func TestUnmarshal_nonDefaultOpts(t *testing.T) {
 	opts := &UnmarshalOptions{
 		DisableDuplicateKeyError:       true,
 		DisableUnsupportedKeyTypeError: true,
+		// TODO: DisableStandardUnmarshalTransformer
 	}
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
 	testUnmarshal(t, opts, timestampUnmarshalTestCases)
@@ -538,16 +539,18 @@ var applicationExtensionsUnmarshalTestCases = []unmarshalTestCase{
 
 func TestUnmarshal_applicationExtensions(t *testing.T) {
 	opts := &UnmarshalOptions{
-		ApplicationUnmarshalExtensions: map[int]UnmarshalExtensionTypeFn{
-			// 34: just unmarshals to a string.
-			34: func(data []byte) (any, bool, error) {
-				return string(data), true, nil
+		ApplicationUnmarshalTransformer: MakeExtensionTypeUnmarshalTransformer(
+			map[int8]UnmarshalExtensionTypeFn{
+				// 34: just unmarshals to a string.
+				34: func(data []byte) (any, bool, error) {
+					return string(data), true, nil
+				},
+				// 35: unmarshals to a *testExtensionType.
+				35: func(data []byte) (any, bool, error) {
+					return &testExtensionType{data: data}, false, nil
+				},
 			},
-			// 35: unmarshals to a *testExtensionType.
-			35: func(data []byte) (any, bool, error) {
-				return &testExtensionType{data: data}, false, nil
-			},
-		},
+		),
 	}
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
 	testUnmarshal(t, opts, timestampUnmarshalTestCases)
@@ -571,12 +574,15 @@ var timestampExtensionOverrideUnmarshalTestCases = []unmarshalTestCase{
 
 func TestUnmarshal_timestampExtensionOverride(t *testing.T) {
 	opts := &UnmarshalOptions{
-		ApplicationUnmarshalExtensions: map[int]UnmarshalExtensionTypeFn{
-			// -1: just unmarshals to a string.
-			-1: func(data []byte) (any, bool, error) {
-				return string("tomorrow"), true, nil
+		DisableStandardUnmarshalTransformer: true,
+		ApplicationUnmarshalTransformer: MakeExtensionTypeUnmarshalTransformer(
+			map[int8]UnmarshalExtensionTypeFn{
+				// -1: just unmarshals to a string.
+				-1: func(data []byte) (any, bool, error) {
+					return string("tomorrow"), true, nil
+				},
 			},
-		},
+		),
 	}
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
 	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
@@ -585,12 +591,14 @@ func TestUnmarshal_timestampExtensionOverride(t *testing.T) {
 
 func TestUnmarshalBytes(t *testing.T) {
 	opts := &UnmarshalOptions{
-		ApplicationUnmarshalExtensions: map[int]UnmarshalExtensionTypeFn{
-			// 34: just unmarshals to a string.
-			34: func(data []byte) (any, bool, error) {
-				return string(data), true, nil
+		ApplicationUnmarshalTransformer: MakeExtensionTypeUnmarshalTransformer(
+			map[int8]UnmarshalExtensionTypeFn{
+				// 34: just unmarshals to a string.
+				34: func(data []byte) (any, bool, error) {
+					return string(data), true, nil
+				},
 			},
-		},
+		),
 	}
 
 	if decoded, err := UnmarshalBytes(opts, []byte{0xc7, 0x02, 0x22, 0x68, 0x69}); err != nil || decoded != "hi" {

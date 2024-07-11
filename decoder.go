@@ -87,16 +87,6 @@ type UnmarshalOptions struct {
 	// unmarshalling (and after the standard unmarshal transformer).
 	// This is run before the standard marshal transformer.
 	ApplicationUnmarshalTransformer UnmarshalTransformerFn
-
-	// ApplicationUnmarshalExtensions is a map from any extension types (-128 to 127) to the
-	// corresponding UnmarshalExtensionTypeFn.
-	//
-	// Application-specific extension types are in the range 0 to 127, but this can also be used
-	// to support new standard extension types not yet supported by umsgpack or to override
-	// built-in support.
-	//
-	// TODO: deprecate/remove (replace with support on top of transformers).
-	ApplicationUnmarshalExtensions map[int]UnmarshalExtensionTypeFn
 }
 
 // An UnmarshalTransformerFn transforms an object after unmarshalling.
@@ -439,18 +429,7 @@ func (u *unmarshaller) unmarshalNExt(n uint) (any, bool, error) {
 		return nil, false, err
 	}
 
-	return u.resolveExtensionType(extensionType, data)
-}
-
-// resolveExtensionType tries to resolve the given extension type and data to a concrete object.
-// It returns a *UnresolvedExtensionType if it is unable to.
-func (u *unmarshaller) resolveExtensionType(extensionType int, data []byte) (any, bool, error) {
-	unmarshalFn := u.opts.ApplicationUnmarshalExtensions[extensionType]
-	if unmarshalFn == nil {
-		return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, false, nil
-	}
-
-	return unmarshalFn(data)
+	return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, false, nil
 }
 
 // readByte is a helper that reads exactly one byte.
