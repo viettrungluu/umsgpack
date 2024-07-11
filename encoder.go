@@ -80,17 +80,6 @@ type MarshalOptions struct {
 	LateTransformers []TransformerFn
 }
 
-// A TransformerFn transforms an object (usually to a marshallable type).
-//
-// If the function does not apply, it should just return the object as-is and no error.
-//
-// If it applies, it should return the transformed object. It may also return an error if it
-// does/should apply but runs into some other problem.
-//
-// It may determine applicability however it wants (e.g., based on type, on reflection, or on
-// nothing at all).
-type TransformerFn func(obj any) (any, error)
-
 // Marshaller --------------------------------------------------------------------------------------
 
 // A marshaller handles MessagePack marshalling for Marshal.
