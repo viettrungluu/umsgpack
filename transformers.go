@@ -9,26 +9,6 @@ import (
 	"reflect"
 )
 
-// MarshalArrayTransformer -------------------------------------------------------------------------
-
-// MarshalArrayTransformer is a transformer (MarshalTransformerFn) that transforms any array or
-// slice to a []any.
-func MarshalArrayTransformer(obj any) (any, error) {
-	if kind := reflect.TypeOf(obj).Kind(); kind != reflect.Array && kind != reflect.Slice {
-		return obj, nil
-	}
-
-	v := reflect.ValueOf(obj)
-	vlen := v.Len()
-	rv := make([]any, 0, vlen)
-	for i := 0; i < vlen; i += 1 {
-		rv = append(rv, v.Index(i).Interface())
-	}
-	return rv, nil
-}
-
-var _ MarshalTransformerFn = MarshalArrayTransformer
-
 // MarshalMapTransformer ---------------------------------------------------------------------------
 
 // MarshalMapTransformer is a transformer (MarshalTransformerFn) that transforms any map to a

@@ -30,45 +30,6 @@ func testTransformer(t *testing.T, xform MarshalTransformerFn, tCs []transformer
 	}
 }
 
-// MarshalArrayTransformer -------------------------------------------------------------------------
-
-func TestMarshalArrayTransformer_notApplicable(t *testing.T) {
-	testTransformer(t, MarshalArrayTransformer, []transformerTestCase{
-		{"int", int(123), nil, int(123)},
-		{"string", "hi", nil, "hi"},
-		{"struct", struct{}{}, nil, struct{}{}},
-		{"map", map[string]int{"hi": 123}, nil, map[string]int{"hi": 123}},
-	})
-}
-
-func TestMarshalArrayTransformer_array(t *testing.T) {
-	testTransformer(t, MarshalArrayTransformer, []transformerTestCase{
-		{"int array", [3]int{1, 2, 3}, nil, []any{1, 2, 3}},
-		{"string array", [2]string{"hello", "world"}, nil, []any{"hello", "world"}},
-		{"empty array", [0]struct{}{}, nil, []any{}},
-	})
-}
-
-func TestMarshalArrayTransformer_slice(t *testing.T) {
-	testTransformer(t, MarshalArrayTransformer, []transformerTestCase{
-		{"int slice", []int{1, 2, 3}, nil, []any{1, 2, 3}},
-		{"string slice", []string{"hello", "world"}, nil, []any{"hello", "world"}},
-		{"empty slice", []struct{}{}, nil, []any{}},
-	})
-}
-
-func TestMarshalArrayTransformer_MarshalToBytes(t *testing.T) {
-	opts := &MarshalOptions{
-		LateMarshalTransformers: []MarshalTransformerFn{
-			MarshalArrayTransformer,
-		},
-	}
-
-	if encoded, err := MarshalToBytes(opts, []string{"0", "1", "2"}); err != nil || bytes.Compare(encoded, append([]byte{0x93}, genArrayData(3)...)) != 0 {
-		t.Errorf("Unexpected result from MarshalToBytes: %v, %v", encoded, err)
-	}
-}
-
 // MarshalMapTransformer ---------------------------------------------------------------------------
 
 func TestMarshalMapTransformer_notApplicable(t *testing.T) {
