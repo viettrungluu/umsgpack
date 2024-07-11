@@ -95,15 +95,6 @@ func (m *marshaller) marshalObject(obj any) error {
 		}
 	}
 
-	if err := m.marshalStandardObject(obj); err != UnsupportedTypeForMarshallingError {
-		return err
-	}
-
-	return m.marshalStandardObject(obj)
-}
-
-// marshalStandardObject marshals a standard, supported object.
-func (m *marshaller) marshalStandardObject(obj any) error {
 	if obj == nil {
 		return m.marshalNil()
 	}
