@@ -822,7 +822,7 @@ var testError = errors.New("test error")
 
 func TestMarshal_applicationTransformers(t *testing.T) {
 	opts := &MarshalOptions{
-		LateMarshalTransformers: []MarshalTransformerFn{
+		LateTransformers: []TransformerFn{
 			func(obj any) (any, error) {
 				if t, ok := obj.(testMarshalType1); ok {
 					if t == "oops" {
@@ -869,7 +869,7 @@ func TestMarshal_applicationTransformers(t *testing.T) {
 
 func TestMarshalToBytes(t *testing.T) {
 	opts := &MarshalOptions{
-		LateMarshalTransformers: []MarshalTransformerFn{
+		LateTransformers: []TransformerFn{
 			func(obj any) (any, error) {
 				if t, ok := obj.(testMarshalType1); ok {
 					return &UnresolvedExtensionType{

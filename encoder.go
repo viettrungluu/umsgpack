@@ -53,7 +53,7 @@ var DefaultMarshalOptions = &MarshalOptions{}
 //     {8,16,32}) possible
 //   - time.Time to the timestamp extension (type -1), using the most compact format possible
 //     (timestamp {32,64,96}, as fixext {4,8}/ext 8, respectively)
-//   - types transformed by transformers (opts.LateMarshalTransformers) to the above
+//   - types transformed by transformers (opts.LateTransformers) to the above
 func Marshal(opts *MarshalOptions, w io.Writer, obj any) error {
 	if opts == nil {
 		opts = DefaultMarshalOptions
@@ -73,14 +73,14 @@ func MarshalToBytes(opts *MarshalOptions, obj any) ([]byte, error) {
 
 // MarshalOptions specifies options for Marshal.
 type MarshalOptions struct {
-	// LateMarshalTransformers is any array of application-specific transformers, that will all
-	// be applied in order (in a chained way, i.e., passing the result of one to the next) if
-	// an object isn't a standard, supported object for marshalling; the result will then be
+	// LateTransformers is any array of application-specific transformers, that will all be
+	// applied in order (in a chained way, i.e., passing the result of one to the next) if an
+	// object isn't a standard, supported object for marshalling; the result will then be
 	// marshalled, if possible.
-	LateMarshalTransformers []MarshalTransformerFn
+	LateTransformers []TransformerFn
 }
 
-// A MarshalTransformerFn transforms an object (usually to a marshallable type).
+// A TransformerFn transforms an object (usually to a marshallable type).
 //
 // If the function does not apply, it should just return the object as-is and no error.
 //
@@ -89,7 +89,7 @@ type MarshalOptions struct {
 //
 // It may determine applicability however it wants (e.g., based on type, on reflection, or on
 // nothing at all).
-type MarshalTransformerFn func(obj any) (any, error)
+type TransformerFn func(obj any) (any, error)
 
 // Marshaller --------------------------------------------------------------------------------------
 
@@ -105,7 +105,7 @@ func (m *marshaller) marshalObject(obj any) error {
 		return err
 	}
 
-	obj, err := m.runTransformers(m.opts.LateMarshalTransformers, obj)
+	obj, err := m.runTransformers(m.opts.LateTransformers, obj)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (m *marshaller) marshalStandardObject(obj any) error {
 }
 
 // runTransformers runs the given transformers on an object.
-func (m *marshaller) runTransformers(xforms []MarshalTransformerFn, obj any) (any, error) {
+func (m *marshaller) runTransformers(xforms []TransformerFn, obj any) (any, error) {
 	for _, xform := range xforms {
 		var err error
 		obj, err = xform(obj)
