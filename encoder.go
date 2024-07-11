@@ -458,7 +458,11 @@ func ComposeMarshalTransformers(xforms ...MarshalTransformerFn) MarshalTransform
 	}
 }
 
-// StandardMarshalTransformer is the standard transformer run by Marshal (after the
+// StandardMarshalTransformer is the standard marshal transformer run by Marshal (after the
+// application marshal transformer, if any).
+//
+// Currently, it's just TimestampExtensionMarshalTransformer (supporting the timestamp extension
+// type), but others may easily be added/combined using ComposeMarshalTransformers.
 var StandardMarshalTransformer MarshalTransformerFn = TimestampExtensionMarshalTransformer
 
 // TimestampExtensionMarshalTransformer is a MarshalTransformerFn supporting the standard (-1)
