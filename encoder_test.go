@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -975,5 +976,44 @@ func TestMarshalToBytes(t *testing.T) {
 	}
 }
 
-// TODO: test ComposeMarshalTransformers.
+func TestComposeMarshalTransformers(t *testing.T) {
+	err1 := errors.New("err1")
+	// int -> string, else err1.
+	var xform1 MarshalTransformerFn = func(obj any) (any, error) {
+		if i, ok := obj.(int); ok {
+			return strconv.Itoa(i), nil
+		} else {
+			return nil, err1
+		}
+	}
+
+	// string -> int, else passthrough.
+	var xform2 MarshalTransformerFn = func(obj any) (any, error) {
+		if s, ok := obj.(string); ok {
+			return len(s), nil
+		} else {
+			return obj, nil
+		}
+	}
+
+	xform12 := ComposeMarshalTransformers(xform1, xform2)
+	if obj, err := xform12(123); err != nil || obj != 3 {
+		t.Errorf("Unexpected result: %v, %v", obj, err)
+	}
+	if obj, err := xform12("ab"); err != err1 || obj != nil {
+		t.Errorf("Unexpected result: %v, %v", obj, err)
+	}
+
+	xform21 := ComposeMarshalTransformers(xform2, xform1)
+	if obj, err := xform21(123); err != nil || obj != "123" {
+		t.Errorf("Unexpected result: %v, %v", obj, err)
+	}
+	if obj, err := xform21("ab"); err != nil || obj != "2" {
+		t.Errorf("Unexpected result: %v, %v", obj, err)
+	}
+	if obj, err := xform21(nil); err != err1 {
+		t.Errorf("Unexpected result: %v, %v", obj, err)
+	}
+}
+
 // TODO: test TimestampExtensionMarshalTransformer.
