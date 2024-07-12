@@ -19,13 +19,15 @@ import (
 
 // A marshalTestCase defines a test case for marshalling: the original object and the expected
 // encoded bytes or the expected error. If prefix is true, then encoded is just a prefix to be
-// checked; the actual encoded data is the checked by unmarshalling. (This is to support testing
-// map marshalling, since Go's map iteration order is not deterministic.)
+// checked; the actual encoded data is the checked by unmarshalling (and comparing to either obj or
+// decoded, if decoded is not nil); this is to support testing map marshalling, since Go's map
+// iteration order is not deterministic.
 type marshalTestCase struct {
 	obj     any
 	encoded []byte
 	err     error
 	prefix  bool
+	decoded any
 }
 
 // testMarshal is a helper for testing Marshal with the given options for the given test cases.
@@ -36,13 +38,18 @@ func testMarshal(t *testing.T, opts *MarshalOptions, tCs []marshalTestCase) {
 			t.Errorf("unexected error for obj=%#v (encoded=%q, err=%v): actualErr=%v", tC.obj, tC.encoded, tC.err, actualErr)
 		} else if tC.err == nil {
 			if tC.prefix {
+				expectedDecoded := tC.decoded
+				if expectedDecoded == nil {
+					expectedDecoded = tC.obj
+				}
+
 				if bytes.Compare(buf.Bytes()[:len(tC.encoded)], tC.encoded) != 0 {
 					t.Errorf("unexected result for obj=%#v (encoded_prefix=%q): actualEncoded=%q", tC.obj, tC.encoded, buf.Bytes())
 				} else {
 					if decoded, err := UnmarshalBytes(nil, buf.Bytes()); err != nil {
 						t.Errorf("unmarshal failed for obj=%#v (err=%v): actualEncoded=%q", tC.obj, err, buf.Bytes())
-					} else if !reflect.DeepEqual(decoded, tC.obj) {
-						t.Errorf("unmarshal output did not match for obj=%#v: decodedObj=%#v", tC.obj, decoded)
+					} else if !reflect.DeepEqual(decoded, expectedDecoded) {
+						t.Errorf("unmarshal output did not match for obj=%#v: decodedObj=%#v (expectedDecoded=%#v)", tC.obj, decoded, expectedDecoded)
 					}
 				}
 			} else {
@@ -302,6 +309,18 @@ var commonMarshalTestCases = []marshalTestCase{
 	// map 32: 11011111: 0xdf
 	{obj: genMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true},
 	{obj: genMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true},
+	// *** map[string]any
+	// fixmap: 1000xxxx: 0x80 - 0x8f
+	{obj: map[string]any{}, encoded: []byte{0x80}},
+	{obj: genStringAnyMap(1), encoded: append([]byte{0x81}, genMapData(1)...)},
+	{obj: genStringAnyMap(2), encoded: []byte{0x82}, prefix: true, decoded: genMap(2)},
+	{obj: genStringAnyMap(0xf), encoded: []byte{0x8f}, prefix: true, decoded: genMap(0xf)},
+	// map 16: 11011110: 0xde
+	{obj: genStringAnyMap(0x10), encoded: []byte{0xde, 0x00, 0x10}, prefix: true, decoded: genMap(0x10)},
+	{obj: genStringAnyMap(0xffff), encoded: []byte{0xde, 0xff, 0xff}, prefix: true, decoded: genMap(0xffff)},
+	// map 32: 11011111: 0xdf
+	{obj: genStringAnyMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true, decoded: genMap(0x10000)},
+	{obj: genStringAnyMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true, decoded: genMap(99999)},
 	// *** *UnresolvedExtensionType
 	// fixext 1: 11010100: 0xd4
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00}}, encoded: []byte{0xd4, 0x12, 0x00}},
@@ -331,15 +350,15 @@ var commonMarshalTestCases = []marshalTestCase{
 	// *** []string
 	// fixarray: 1001xxxx: 0x90 - 0x9f
 	{obj: []string{}, encoded: []byte{0x90}},
-	{obj: genTypedArray(1), encoded: append([]byte{0x91}, genArrayData(1)...)},
-	{obj: genTypedArray(2), encoded: append([]byte{0x92}, genArrayData(2)...)},
-	{obj: genTypedArray(0xf), encoded: append([]byte{0x9f}, genArrayData(0xf)...)},
+	{obj: genStringArray(1), encoded: append([]byte{0x91}, genArrayData(1)...)},
+	{obj: genStringArray(2), encoded: append([]byte{0x92}, genArrayData(2)...)},
+	{obj: genStringArray(0xf), encoded: append([]byte{0x9f}, genArrayData(0xf)...)},
 	// array 16: 11011100: 0xdc
-	{obj: genTypedArray(0x10), encoded: append([]byte{0xdc, 0x00, 0x10}, genArrayData(0x10)...)},
-	{obj: genTypedArray(0xffff), encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(0xffff)...)},
+	{obj: genStringArray(0x10), encoded: append([]byte{0xdc, 0x00, 0x10}, genArrayData(0x10)...)},
+	{obj: genStringArray(0xffff), encoded: append([]byte{0xdc, 0xff, 0xff}, genArrayData(0xffff)...)},
 	// array 32: 11011101: 0xdd
-	{obj: genTypedArray(0x10000), encoded: append([]byte{0xdd, 0x00, 0x01, 0x00, 0x00}, genArrayData(0x10000)...)},
-	{obj: genTypedArray(99999), encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0x9f}, genArrayData(99999)...)},
+	{obj: genStringArray(0x10000), encoded: append([]byte{0xdd, 0x00, 0x01, 0x00, 0x00}, genArrayData(0x10000)...)},
+	{obj: genStringArray(99999), encoded: append([]byte{0xdd, 0x00, 0x01, 0x86, 0x9f}, genArrayData(99999)...)},
 	// *** [n]string
 	// fixarray: 1001xxxx: 0x90 - 0x9f
 	{obj: [0]string{}, encoded: []byte{0x90}},
@@ -348,16 +367,15 @@ var commonMarshalTestCases = []marshalTestCase{
 	// *** map[string]int
 	// fixmap: 1000xxxx: 0x80 - 0x8f
 	{obj: map[string]int{}, encoded: []byte{0x80}},
-	{obj: genTypedMap(1), encoded: append([]byte{0x81}, genMapData(1)...)},
-	// TODO: comparing decoded doesn't work!
-	// {obj: genTypedMap(2), encoded: []byte{0x82}, prefix: true},
-	// {obj: genTypedMap(0xf), encoded: []byte{0x8f}, prefix: true},
+	{obj: genStringIntMap(1), encoded: append([]byte{0x81}, genMapData(1)...)},
+	{obj: genStringIntMap(2), encoded: []byte{0x82}, prefix: true, decoded: genMap(2)},
+	{obj: genStringIntMap(0xf), encoded: []byte{0x8f}, prefix: true, decoded: genMap(0xf)},
 	// map 16: 11011110: 0xde
-	// {obj: genTypedMap(0x10), encoded: []byte{0xde, 0x00, 0x10}, prefix: true},
-	// {obj: genTypedMap(0xffff), encoded: []byte{0xde, 0xff, 0xff}, prefix: true},
+	{obj: genStringIntMap(0x10), encoded: []byte{0xde, 0x00, 0x10}, prefix: true, decoded: genMap(0x10)},
+	{obj: genStringIntMap(0xffff), encoded: []byte{0xde, 0xff, 0xff}, prefix: true, decoded: genMap(0xffff)},
 	// map 32: 11011111: 0xdf
-	// {obj: genTypedMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true},
-	// {obj: genTypedMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true},
+	{obj: genStringIntMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true, decoded: genMap(0x10000)},
+	{obj: genStringIntMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true, decoded: genMap(99999)},
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), encoded: []byte{0xd6, 0xff, 0x00, 0x00, 0x00, 0x00}},
@@ -712,6 +730,26 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: genMap(123456), errAt: 5},
 	{obj: genMap(123456), errAt: 6},
 	{obj: genMap(123456), errAt: 7},
+	// *** map[string]any
+	// fixmap: 1000xxxx: 0x80 - 0x8f
+	{obj: genStringAnyMap(12), errAt: 0},
+	{obj: genStringAnyMap(12), errAt: 1},
+	{obj: genStringAnyMap(12), errAt: 2},
+	{obj: genStringAnyMap(12), errAt: 3},
+	// map 16: 11011110: 0xde
+	{obj: genStringAnyMap(42), errAt: 0},
+	{obj: genStringAnyMap(42), errAt: 1},
+	{obj: genStringAnyMap(42), errAt: 2},
+	{obj: genStringAnyMap(42), errAt: 3},
+	{obj: genStringAnyMap(42), errAt: 4},
+	{obj: genStringAnyMap(42), errAt: 5},
+	// map 32: 11011111: 0xdf
+	{obj: genStringAnyMap(123456), errAt: 0},
+	{obj: genStringAnyMap(123456), errAt: 1},
+	{obj: genStringAnyMap(123456), errAt: 4},
+	{obj: genStringAnyMap(123456), errAt: 5},
+	{obj: genStringAnyMap(123456), errAt: 6},
+	{obj: genStringAnyMap(123456), errAt: 7},
 	// *** *UnresolvedExtensionType
 	// fixext 1: 11010100: 0xd4
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: []byte{0x00}}, errAt: 0},
@@ -759,38 +797,38 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: &UnresolvedExtensionType{ExtensionType: 0x12, Data: fillerBytes(123456)}, errAt: 123461},
 	// *** []string
 	// fixarray: 1001xxxx: 0x90 - 0x9f
-	{obj: genTypedArray(12), errAt: 0},
-	{obj: genTypedArray(12), errAt: 1},
+	{obj: genStringArray(12), errAt: 0},
+	{obj: genStringArray(12), errAt: 1},
 	// array 16: 11011100: 0xdc
-	{obj: genTypedArray(42), errAt: 0},
-	{obj: genTypedArray(42), errAt: 1},
-	{obj: genTypedArray(42), errAt: 2},
-	{obj: genTypedArray(42), errAt: 3},
+	{obj: genStringArray(42), errAt: 0},
+	{obj: genStringArray(42), errAt: 1},
+	{obj: genStringArray(42), errAt: 2},
+	{obj: genStringArray(42), errAt: 3},
 	// array 32: 11011101: 0xdd
-	{obj: genTypedArray(123456), errAt: 0},
-	{obj: genTypedArray(123456), errAt: 1},
-	{obj: genTypedArray(123456), errAt: 4},
-	{obj: genTypedArray(123456), errAt: 5},
+	{obj: genStringArray(123456), errAt: 0},
+	{obj: genStringArray(123456), errAt: 1},
+	{obj: genStringArray(123456), errAt: 4},
+	{obj: genStringArray(123456), errAt: 5},
 	// *** map[string]int
 	// fixmap: 1000xxxx: 0x80 - 0x8f
-	{obj: genTypedMap(12), errAt: 0},
-	{obj: genTypedMap(12), errAt: 1},
-	{obj: genTypedMap(12), errAt: 2},
-	{obj: genTypedMap(12), errAt: 3},
+	{obj: genStringIntMap(12), errAt: 0},
+	{obj: genStringIntMap(12), errAt: 1},
+	{obj: genStringIntMap(12), errAt: 2},
+	{obj: genStringIntMap(12), errAt: 3},
 	// map 16: 11011110: 0xde
-	{obj: genTypedMap(42), errAt: 0},
-	{obj: genTypedMap(42), errAt: 1},
-	{obj: genTypedMap(42), errAt: 2},
-	{obj: genTypedMap(42), errAt: 3},
-	{obj: genTypedMap(42), errAt: 4},
-	{obj: genTypedMap(42), errAt: 5},
+	{obj: genStringIntMap(42), errAt: 0},
+	{obj: genStringIntMap(42), errAt: 1},
+	{obj: genStringIntMap(42), errAt: 2},
+	{obj: genStringIntMap(42), errAt: 3},
+	{obj: genStringIntMap(42), errAt: 4},
+	{obj: genStringIntMap(42), errAt: 5},
 	// map 32: 11011111: 0xdf
-	{obj: genTypedMap(123456), errAt: 0},
-	{obj: genTypedMap(123456), errAt: 1},
-	{obj: genTypedMap(123456), errAt: 4},
-	{obj: genTypedMap(123456), errAt: 5},
-	{obj: genTypedMap(123456), errAt: 6},
-	{obj: genTypedMap(123456), errAt: 7},
+	{obj: genStringIntMap(123456), errAt: 0},
+	{obj: genStringIntMap(123456), errAt: 1},
+	{obj: genStringIntMap(123456), errAt: 4},
+	{obj: genStringIntMap(123456), errAt: 5},
+	{obj: genStringIntMap(123456), errAt: 6},
+	{obj: genStringIntMap(123456), errAt: 7},
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), errAt: 0},

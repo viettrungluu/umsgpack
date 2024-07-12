@@ -47,8 +47,8 @@ func genArray(n int) []any {
 	return rv
 }
 
-// genTypedArray generates a strongly-typed test array (slice) with n entries; matches genArrayData.
-func genTypedArray(n int) []string {
+// genStringArray generates a string test array (slice) with n entries; matches genArrayData.
+func genStringArray(n int) []string {
 	rv := []string{}
 	for i := 0; i < n; i += 1 {
 		rv = append(rv, strconv.Itoa(i))
@@ -82,8 +82,17 @@ func genMap(n int) map[any]any {
 	return rv
 }
 
-// genTypedMap generates strongly-typed test map with n key-value pairs; matches genMapData.
-func genTypedMap(n int) map[string]int {
+// genStringAnyMap generates string-any test map with n key-value pairs; matches genMapData.
+func genStringAnyMap(n int) map[string]any {
+	rv := map[string]any{}
+	for i := 0; i < n; i += 1 {
+		rv[strconv.Itoa(i)] = i % 10000
+	}
+	return rv
+}
+
+// genStringIntMap generates string-int test map with n key-value pairs; matches genMapData.
+func genStringIntMap(n int) map[string]int {
 	rv := map[string]int{}
 	for i := 0; i < n; i += 1 {
 		rv[strconv.Itoa(i)] = i % 10000

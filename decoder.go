@@ -448,7 +448,7 @@ func (u *unmarshaller) readByte() (byte, error) {
 //
 // It either returns an error, or on success the object and a boolean indicating if the value is a
 // valid map key (for a map[any]any).
-type UnmarshalExtensionTypeFn func(data []byte) (object any, mapKeySupported bool, err error)
+type UnmarshalExtensionTypeFn func(data []byte) (obj any, mapKeySupported bool, err error)
 
 // MakeExtensionTypeUnmarshalTransformer makes an unmarshal transformer for the given extensions,
 // specified as a map from an extension type (-128 to 127) to an UnmarshalExtensionTypeFn.

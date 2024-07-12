@@ -163,7 +163,9 @@ func (m *marshaller) marshalObject(obj any) error {
 	case []any:
 		return m.marshalArray(v)
 	case map[any]any:
-		return m.marshalMap(v)
+		return m.marshalAnyMap(v)
+	case map[string]any:
+		return m.marshalStringMap(v)
 	case *UnresolvedExtensionType:
 		return m.marshalExtensionType(int(v.ExtensionType), v.Data)
 	}
@@ -336,13 +338,29 @@ func (m *marshaller) writeArrayPrefix(u int) error {
 	return nil
 }
 
-// marshalMap marshals a map[any]any (in a minimal way).
-func (m *marshaller) marshalMap(kvs map[any]any) error {
+// marshalAnyMap marshals a map[any]any (in a minimal way).
+func (m *marshaller) marshalAnyMap(kvs map[any]any) error {
 	if err := m.writeMapPrefix(len(kvs)); err != nil {
 		return err
 	}
 	for k, v := range kvs {
 		if err := m.marshalObject(k); err != nil {
+			return err
+		}
+		if err := m.marshalObject(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// marshalStringMap marshals a map[string]any (in a minimal way).
+func (m *marshaller) marshalStringMap(kvs map[string]any) error {
+	if err := m.writeMapPrefix(len(kvs)); err != nil {
+		return err
+	}
+	for k, v := range kvs {
+		if err := m.marshalString(k); err != nil {
 			return err
 		}
 		if err := m.marshalObject(v); err != nil {
