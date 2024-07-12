@@ -376,6 +376,23 @@ var commonMarshalTestCases = []marshalTestCase{
 	// map 32: 11011111: 0xdf
 	{obj: genStringIntMap(0x10000), encoded: []byte{0xdf, 0x00, 0x01, 0x00, 0x00}, prefix: true, decoded: genMap(0x10000)},
 	{obj: genStringIntMap(99999), encoded: []byte{0xdf, 0x00, 0x01, 0x86, 0x9f}, prefix: true, decoded: genMap(99999)},
+	// *** Errors
+	{obj: chan int(nil), err: UnsupportedTypeForMarshallingError},
+}
+
+type testMarshalType1 string
+
+type testMarshalType2 struct{}
+
+type testMarshalType3 struct {
+	value bool
+}
+
+type testMarshalType4 int
+
+type testMarshalType5 int
+
+var defaultOptsMarshalTestCases = []marshalTestCase{
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), encoded: []byte{0xd6, 0xff, 0x00, 0x00, 0x00, 0x00}},
@@ -397,23 +414,17 @@ var commonMarshalTestCases = []marshalTestCase{
 	{obj: time.Unix(-1, 999999999), encoded: []byte{0xc7, 0x0c, 0xff, 0x3b, 0x9a, 0xc9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}},
 	{obj: time.Unix(math.MinInt64, 1), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
 	{obj: time.Unix(math.MinInt64, 999999999), encoded: []byte{0xc7, 0x0c, 0xff, 0x3b, 0x9a, 0xc9, 0xff, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
-	// *** Errors
-	{obj: chan int(nil), err: UnsupportedTypeForMarshallingError},
+	// UnsupportedTypeForMarshallingError
+	{obj: testMarshalType1(""), err: UnsupportedTypeForMarshallingError},
+	{obj: &testMarshalType2{}, err: UnsupportedTypeForMarshallingError},
+	{obj: &testMarshalType3{}, err: UnsupportedTypeForMarshallingError},
+	{obj: testMarshalType4(0), err: UnsupportedTypeForMarshallingError},
+	{obj: testMarshalType5(0), err: UnsupportedTypeForMarshallingError},
 }
 
-type testMarshalType1 string
-
-type testMarshalType2 struct{}
-
-type testMarshalType3 struct {
-	value bool
-}
-
-type testMarshalType4 int
-
-type testMarshalType5 int
-
-var defaultOptsMarshalTestCases = []marshalTestCase{
+var nonDefaultOptsMarshalTestCases = []marshalTestCase{
+	// UnsupportedTypeForMarshallingError
+	{obj: time.Unix(0, 0), err: UnsupportedTypeForMarshallingError},
 	{obj: testMarshalType1(""), err: UnsupportedTypeForMarshallingError},
 	{obj: &testMarshalType2{}, err: UnsupportedTypeForMarshallingError},
 	{obj: &testMarshalType3{}, err: UnsupportedTypeForMarshallingError},
@@ -422,6 +433,27 @@ var defaultOptsMarshalTestCases = []marshalTestCase{
 }
 
 var applicationMarshalTransformerMarshalTestCases = []marshalTestCase{
+	// *** time.Time
+	// timestamp 32
+	{obj: time.Unix(0, 0), encoded: []byte{0xd6, 0xff, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(math.MaxUint32, 0), encoded: []byte{0xd6, 0xff, 0xff, 0xff, 0xff, 0xff}},
+	// timestamp 64
+	{obj: time.Unix(math.MaxUint32+1, 0), encoded: []byte{0xd7, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(1<<34-1, 0), encoded: []byte{0xd7, 0xff, 0x00, 0x00, 0x00, 0x03, 0xff, 0xff, 0xff, 0xff}},
+	{obj: time.Unix(0, 1), encoded: []byte{0xd7, 0xff, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(0, 999999999), encoded: []byte{0xd7, 0xff, 0xee, 0x6b, 0x27, 0xfc, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(1<<34-1, 999999999), encoded: []byte{0xd7, 0xff, 0xee, 0x6b, 0x27, 0xff, 0xff, 0xff, 0xff, 0xff}},
+	// timestamp 96
+	{obj: time.Unix(1<<34, 0), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(math.MaxInt64, 0), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}},
+	{obj: time.Unix(1<<34, 1), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(1<<34, 999999999), encoded: []byte{0xc7, 0x0c, 0xff, 0x3b, 0x9a, 0xc9, 0xff, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(-1, 0), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}},
+	{obj: time.Unix(math.MinInt64, 0), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(-1, 1), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}},
+	{obj: time.Unix(-1, 999999999), encoded: []byte{0xc7, 0x0c, 0xff, 0x3b, 0x9a, 0xc9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}},
+	{obj: time.Unix(math.MinInt64, 1), encoded: []byte{0xc7, 0x0c, 0xff, 0x00, 0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+	{obj: time.Unix(math.MinInt64, 999999999), encoded: []byte{0xc7, 0x0c, 0xff, 0x3b, 0x9a, 0xc9, 0xff, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
 	// *** testMarshalType1
 	{obj: testMarshalType1("oops"), err: testError},
 	// fixext 1: 11010100: 0xd4
@@ -829,6 +861,9 @@ var commonMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	{obj: genStringIntMap(123456), errAt: 5},
 	{obj: genStringIntMap(123456), errAt: 6},
 	{obj: genStringIntMap(123456), errAt: 7},
+}
+
+var defaultOptsMarshalWriteErrorTestCases = []marshalWriteErrorTestCase{
 	// *** time.Time
 	// timestamp 32
 	{obj: time.Unix(0, 0), errAt: 0},
@@ -853,6 +888,17 @@ func TestMarshal_defaultOpts(t *testing.T) {
 	opts := &MarshalOptions{}
 	testMarshal(t, opts, commonMarshalTestCases)
 	testMarshal(t, opts, defaultOptsMarshalTestCases)
+	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
+	testMarshalWriteError(t, opts, defaultOptsMarshalWriteErrorTestCases)
+}
+
+// TestMarshal_nonDefaultOpts tests Marshal with the default options (all boolean options are true).
+func TestMarshal_nonDefaultOpts(t *testing.T) {
+	opts := &MarshalOptions{
+		DisableStandardMarshalTransformer: true,
+	}
+	testMarshal(t, opts, commonMarshalTestCases)
+	testMarshal(t, opts, nonDefaultOptsMarshalTestCases)
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
 }
 
@@ -903,6 +949,7 @@ func TestMarshal_applicationMarshalTransformer(t *testing.T) {
 	testMarshal(t, opts, commonMarshalTestCases)
 	testMarshal(t, opts, applicationMarshalTransformerMarshalTestCases)
 	testMarshalWriteError(t, opts, commonMarshalWriteErrorTestCases)
+	testMarshalWriteError(t, opts, defaultOptsMarshalWriteErrorTestCases)
 }
 
 func TestMarshalToBytes(t *testing.T) {
@@ -928,6 +975,5 @@ func TestMarshalToBytes(t *testing.T) {
 	}
 }
 
-// TODO: test DisableStandardMarshalTransformer option.
 // TODO: test ComposeMarshalTransformers.
 // TODO: test TimestampExtensionMarshalTransformer.
