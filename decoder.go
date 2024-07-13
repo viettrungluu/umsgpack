@@ -298,7 +298,7 @@ func (u *unmarshaller) unmarshalUint8() (uint, bool, error) {
 	if b, err := u.readByte(); err != nil {
 		return 0, false, err
 	} else {
-		return uint(b), true, err
+		return uint(b), true, nil
 	}
 }
 
@@ -307,7 +307,7 @@ func (u *unmarshaller) unmarshalUint16() (uint, bool, error) {
 	if data, err := u.readBytes(2); err != nil {
 		return 0, false, err
 	} else {
-		return uint(binary.BigEndian.Uint16(data)), true, err
+		return uint(binary.BigEndian.Uint16(data)), true, nil
 	}
 }
 
@@ -316,7 +316,7 @@ func (u *unmarshaller) unmarshalUint32() (uint, bool, error) {
 	if data, err := u.readBytes(4); err != nil {
 		return 0, false, err
 	} else {
-		return uint(binary.BigEndian.Uint32(data)), true, err
+		return uint(binary.BigEndian.Uint32(data)), true, nil
 	}
 }
 
@@ -325,7 +325,7 @@ func (u *unmarshaller) unmarshalUint64() (uint, bool, error) {
 	if data, err := u.readBytes(8); err != nil {
 		return 0, false, err
 	} else {
-		return uint(binary.BigEndian.Uint64(data)), true, err
+		return uint(binary.BigEndian.Uint64(data)), true, nil
 	}
 }
 
@@ -335,7 +335,7 @@ func (u *unmarshaller) unmarshalInt8() (int, bool, error) {
 		return 0, false, err
 	} else {
 		// Cast to an int8 first, so that casting to an int will sign-extend.
-		return int(int8(b)), true, err
+		return int(int8(b)), true, nil
 	}
 }
 
@@ -345,7 +345,7 @@ func (u *unmarshaller) unmarshalInt16() (int, bool, error) {
 		return 0, false, err
 	} else {
 		// Cast to an int16 first, so that casting to an int will sign-extend.
-		return int(int16(binary.BigEndian.Uint16(data))), true, err
+		return int(int16(binary.BigEndian.Uint16(data))), true, nil
 	}
 }
 
@@ -355,7 +355,7 @@ func (u *unmarshaller) unmarshalInt32() (int, bool, error) {
 		return 0, false, err
 	} else {
 		// Cast to an int32 first, so that casting to an int will sign-extend.
-		return int(int32(binary.BigEndian.Uint32(data))), true, err
+		return int(int32(binary.BigEndian.Uint32(data))), true, nil
 	}
 }
 
@@ -365,7 +365,7 @@ func (u *unmarshaller) unmarshalInt64() (int, bool, error) {
 		return 0, false, err
 	} else {
 		// Cast to an int64 first, so that casting to an int will sign-extend.
-		return int(int64(binary.BigEndian.Uint64(data))), true, err
+		return int(int64(binary.BigEndian.Uint64(data))), true, nil
 	}
 }
 
@@ -374,7 +374,7 @@ func (u *unmarshaller) unmarshalFloat32() (float32, bool, error) {
 	if data, err := u.readBytes(4); err != nil {
 		return 0, false, err
 	} else {
-		return math.Float32frombits(binary.BigEndian.Uint32(data)), true, err
+		return math.Float32frombits(binary.BigEndian.Uint32(data)), true, nil
 	}
 }
 
@@ -383,7 +383,7 @@ func (u *unmarshaller) unmarshalFloat64() (float64, bool, error) {
 	if data, err := u.readBytes(8); err != nil {
 		return 0, false, err
 	} else {
-		return math.Float64frombits(binary.BigEndian.Uint64(data)), true, err
+		return math.Float64frombits(binary.BigEndian.Uint64(data)), true, nil
 	}
 }
 
