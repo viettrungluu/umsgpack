@@ -25,5 +25,5 @@ jobs:
       run: make checkformat
     - name: Vet
       run: make vet
-    - name Fuzz
+    - name: Fuzz
       run: make fuzz
