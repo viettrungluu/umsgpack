@@ -17,4 +17,7 @@ vet:
 	go vet .
 
 fuzz:
-	go test -fuzz FuzzUnmarshalBytes -fuzztime 60s
+	go test -fuzz . -fuzztime 60s
+
+benchmark:
+	go test -bench . -benchmem -benchtime 10s 
