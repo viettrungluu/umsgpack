@@ -58,4 +58,6 @@ func MakeStructMarshalTransformer(opts *StructMarshalTransformerOptions) Marshal
 	}
 }
 
+// DefaultStructMarshalTransformer is a marshal transformer that transforms structs to maps, using
+// field names and including all (exported) fields.
 var DefaultStructMarshalTransformer = MakeStructMarshalTransformer(nil)

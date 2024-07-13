@@ -69,3 +69,22 @@ func ExampleUnmarshalBytes() {
 	}
 	// Output: [map[foo:bar] 123 4.5]
 }
+
+func ExampleDefaultStructMarshalTransformer() {
+	input := struct {
+		Foo string
+		Bar int
+		baz int
+	}{"hello", 123, 0}
+	opts := &umsgpack.MarshalOptions{
+		ApplicationMarshalTransformer: umsgpack.DefaultStructMarshalTransformer,
+	}
+	if output, err := umsgpack.MarshalToBytes(opts, input); err != nil {
+		panic(err)
+	} else {
+		// NOTE: output isn't deterministic since map iteration order isn't deterministic.
+		// But its length should be deterministic.
+		fmt.Println(len(output))
+	}
+	// Output: 16
+}
