@@ -291,76 +291,96 @@ func (u *unmarshaller) unmarshalStandardObject() (any, bool, error) {
 
 // unmarshalUint8 unmarshals a uint 8 (as a uint).
 func (u *unmarshaller) unmarshalUint8() (uint, bool, error) {
-	buf := make([]byte, 1)
-	_, err := io.ReadFull(u.r, buf)
-	return uint(buf[0]), true, err
+	if b, err := u.readByte(); err != nil {
+		return 0, false, err
+	} else {
+		return uint(b), true, err
+	}
 }
 
 // unmarshalUint16 unmarshals a uint 16 (as a uint).
 func (u *unmarshaller) unmarshalUint16() (uint, bool, error) {
-	buf := make([]byte, 2)
-	_, err := io.ReadFull(u.r, buf)
-	return uint(binary.BigEndian.Uint16(buf)), true, err
+	if data, err := u.readBytes(2); err != nil {
+		return 0, false, err
+	} else {
+		return uint(binary.BigEndian.Uint16(data)), true, err
+	}
 }
 
 // unmarshalUint32 unmarshals a uint 32 (as a uint).
 func (u *unmarshaller) unmarshalUint32() (uint, bool, error) {
-	buf := make([]byte, 4)
-	_, err := io.ReadFull(u.r, buf)
-	return uint(binary.BigEndian.Uint32(buf)), true, err
+	if data, err := u.readBytes(4); err != nil {
+		return 0, false, err
+	} else {
+		return uint(binary.BigEndian.Uint32(data)), true, err
+	}
 }
 
 // unmarshalUint64 unmarshals a uint 64 (as a uint).
 func (u *unmarshaller) unmarshalUint64() (uint, bool, error) {
-	buf := make([]byte, 8)
-	_, err := io.ReadFull(u.r, buf)
-	return uint(binary.BigEndian.Uint64(buf)), true, err
+	if data, err := u.readBytes(8); err != nil {
+		return 0, false, err
+	} else {
+		return uint(binary.BigEndian.Uint64(data)), true, err
+	}
 }
 
 // unmarshalInt8 unmarshals an int 8 (as an int).
 func (u *unmarshaller) unmarshalInt8() (int, bool, error) {
-	buf := make([]byte, 1)
-	_, err := io.ReadFull(u.r, buf)
-	// Cast to an int8 first, so that casting to an int will sign-extend.
-	return int(int8(buf[0])), true, err
+	if b, err := u.readByte(); err != nil {
+		return 0, false, err
+	} else {
+		// Cast to an int8 first, so that casting to an int will sign-extend.
+		return int(int8(b)), true, err
+	}
 }
 
 // unmarshalInt16 unmarshals an int 16 (as an int).
 func (u *unmarshaller) unmarshalInt16() (int, bool, error) {
-	buf := make([]byte, 2)
-	_, err := io.ReadFull(u.r, buf)
-	// Cast to an int16 first, so that casting to an int will sign-extend.
-	return int(int16(binary.BigEndian.Uint16(buf))), true, err
+	if data, err := u.readBytes(2); err != nil {
+		return 0, false, err
+	} else {
+		// Cast to an int16 first, so that casting to an int will sign-extend.
+		return int(int16(binary.BigEndian.Uint16(data))), true, err
+	}
 }
 
 // unmarshalInt32 unmarshals an int 32 (as an int).
 func (u *unmarshaller) unmarshalInt32() (int, bool, error) {
-	buf := make([]byte, 4)
-	_, err := io.ReadFull(u.r, buf)
-	// Cast to an int32 first, so that casting to an int will sign-extend.
-	return int(int32(binary.BigEndian.Uint32(buf))), true, err
+	if data, err := u.readBytes(4); err != nil {
+		return 0, false, err
+	} else {
+		// Cast to an int32 first, so that casting to an int will sign-extend.
+		return int(int32(binary.BigEndian.Uint32(data))), true, err
+	}
 }
 
 // unmarshalInt64 unmarshals an int 64 (as an int).
 func (u *unmarshaller) unmarshalInt64() (int, bool, error) {
-	buf := make([]byte, 8)
-	_, err := io.ReadFull(u.r, buf)
-	// Cast to an int64 first, so that casting to an int will sign-extend.
-	return int(int64(binary.BigEndian.Uint64(buf))), true, err
+	if data, err := u.readBytes(8); err != nil {
+		return 0, false, err
+	} else {
+		// Cast to an int64 first, so that casting to an int will sign-extend.
+		return int(int64(binary.BigEndian.Uint64(data))), true, err
+	}
 }
 
 // unmarshalFloat32 unmarshals a float 32 (as a float32).
 func (u *unmarshaller) unmarshalFloat32() (float32, bool, error) {
-	buf := make([]byte, 4)
-	_, err := io.ReadFull(u.r, buf)
-	return math.Float32frombits(binary.BigEndian.Uint32(buf)), true, err
+	if data, err := u.readBytes(4); err != nil {
+		return 0, false, err
+	} else {
+		return math.Float32frombits(binary.BigEndian.Uint32(data)), true, err
+	}
 }
 
 // unmarshalFloat64 unmarshals a float 64 (as a float64).
 func (u *unmarshaller) unmarshalFloat64() (float64, bool, error) {
-	buf := make([]byte, 8)
-	_, err := io.ReadFull(u.r, buf)
-	return math.Float64frombits(binary.BigEndian.Uint64(buf)), true, err
+	if data, err := u.readBytes(8); err != nil {
+		return 0, false, err
+	} else {
+		return math.Float64frombits(binary.BigEndian.Uint64(data)), true, err
+	}
 }
 
 // unmarshalNMap unmarshals a map with n entries.
