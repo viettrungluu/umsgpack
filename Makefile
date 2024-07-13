@@ -17,4 +17,4 @@ vet:
 	go vet .
 
 fuzz:
-	go test -fuzz FuzzUnmarshalBytes
+	go test -fuzz FuzzUnmarshalBytes -parallel 1
