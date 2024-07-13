@@ -11,13 +11,10 @@ import (
 
 // StructMarshalTransformerOptions are options for MakeStructMarshalTransformer.
 type StructMarshalTransformerOptions struct {
-	// FilterFn filters fields: it should return true if the field should be included. If nil,
-	// all (exported) fields will be included.
-	FilterFn func(field reflect.StructField) bool
-
-	// KeyNameFn transforms the field name to the map key name. If nil, the field name will be
-	// used verbatim.
-	KeyNameFn func(s string) string
+	// FieldFn "handles" a field: it decides whether it should be included and if so the map key
+	// to use. If nil, the default is to include all (expored) fields and use the field name
+	// (field.Name) verbatim as the key.
+	FieldFn func(field reflect.StructField) (includeField bool, mapKey string)
 }
 
 // MakeStructMarshalTransformer makes a MarshalTransformerFn for transforming structs to a
@@ -27,14 +24,11 @@ func MakeStructMarshalTransformer(opts *StructMarshalTransformerOptions) Marshal
 		opts = &StructMarshalTransformerOptions{}
 	}
 
-	filterFn := opts.FilterFn
-	if filterFn == nil {
-		filterFn = func(field reflect.StructField) bool { return true }
-	}
-
-	keyNameFn := opts.KeyNameFn
-	if keyNameFn == nil {
-		keyNameFn = func(s string) string { return s }
+	fieldFn := opts.FieldFn
+	if fieldFn == nil {
+		fieldFn = func(field reflect.StructField) (bool, string) {
+			return true, field.Name
+		}
 	}
 
 	return func(obj any) (any, error) {
@@ -47,11 +41,15 @@ func MakeStructMarshalTransformer(opts *StructMarshalTransformerOptions) Marshal
 		v := reflect.ValueOf(obj)
 		rv := map[string]any{}
 		for _, field := range fields {
-			if !field.IsExported() || !filterFn(field) {
+			if !field.IsExported() {
 				continue
 			}
 
-			key := keyNameFn(field.Name)
+			includeField, key := fieldFn(field)
+			if !includeField {
+				continue
+			}
+
 			value := v.FieldByIndex(field.Index).Interface()
 			rv[key] = value
 		}
