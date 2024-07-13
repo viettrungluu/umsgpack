@@ -405,15 +405,19 @@ func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
 // TODO: Should it be an option?
 func (u *unmarshaller) unmarshalNString(n uint) (string, bool, error) {
 	buf := make([]byte, n)
-	_, err := io.ReadFull(u.r, buf)
-	return string(buf), true, err
+	if _, err := io.ReadFull(u.r, buf); err != nil {
+		return "", false, err
+	}
+	return string(buf), true, nil
 }
 
 // unmarshalNBytes unmarshals a byte array of length n (bytes).
 func (u *unmarshaller) unmarshalNBytes(n uint) ([]byte, bool, error) {
 	buf := make([]byte, n)
-	_, err := io.ReadFull(u.r, buf)
-	return buf, false, err
+	if _, err := io.ReadFull(u.r, buf); err != nil {
+		return nil, false, err
+	}
+	return buf, false, nil
 }
 
 // unmarshalNExt unmarshals an extension with data of length n (bytes).
@@ -424,8 +428,7 @@ func (u *unmarshaller) unmarshalNExt(n uint) (any, bool, error) {
 	}
 
 	data := make([]byte, n)
-	_, err = io.ReadFull(u.r, data)
-	if err != nil {
+	if _, err = io.ReadFull(u.r, data); err != nil {
 		return nil, false, err
 	}
 
