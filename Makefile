@@ -15,3 +15,6 @@ checkformat:
 
 vet:
 	go vet .
+
+fuzz:
+	go test -fuzz FuzzUnmarshalBytes
