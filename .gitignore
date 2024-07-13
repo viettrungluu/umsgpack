@@ -2,3 +2,7 @@
 
 # Coverage output.
 /cover.out
+
+# Profile output.
+/profile_*.out
+/memprofile_*.out
