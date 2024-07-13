@@ -389,6 +389,7 @@ func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 
 // unmarshalNArray unmarshals an array with n entries.
 func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
+	// TODO: don't allocate all n to begin with.
 	rv := make([]any, 0, n)
 	for i := uint(0); i < n; i += 1 {
 		element, _, err := u.unmarshalObject()
@@ -404,35 +405,33 @@ func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
 // Note that it does not validate that it is valid UTF-8.
 // TODO: Should it be an option?
 func (u *unmarshaller) unmarshalNString(n uint) (string, bool, error) {
-	buf := make([]byte, n)
-	if _, err := io.ReadFull(u.r, buf); err != nil {
+	if data, err := u.readBytesChunked(n); err != nil {
 		return "", false, err
+	} else {
+		return string(data), true, nil
 	}
-	return string(buf), true, nil
 }
 
 // unmarshalNBytes unmarshals a byte array of length n (bytes).
 func (u *unmarshaller) unmarshalNBytes(n uint) ([]byte, bool, error) {
-	buf := make([]byte, n)
-	if _, err := io.ReadFull(u.r, buf); err != nil {
+	if data, err := u.readBytesChunked(n); err != nil {
 		return nil, false, err
+	} else {
+		return data, false, nil
 	}
-	return buf, false, nil
 }
 
 // unmarshalNExt unmarshals an extension with data of length n (bytes).
 func (u *unmarshaller) unmarshalNExt(n uint) (any, bool, error) {
-	extensionType, _, err := u.unmarshalInt8()
-	if err != nil {
+	if extensionType, _, err := u.unmarshalInt8(); err != nil {
 		return nil, false, err
+	} else {
+		if data, err := u.readBytesChunked(n); err != nil {
+			return nil, false, err
+		} else {
+			return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, false, nil
+		}
 	}
-
-	data := make([]byte, n)
-	if _, err = io.ReadFull(u.r, data); err != nil {
-		return nil, false, err
-	}
-
-	return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, false, nil
 }
 
 // readByte is a helper that reads exactly one byte.
@@ -440,6 +439,22 @@ func (u *unmarshaller) readByte() (byte, error) {
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(u.r, buf)
 	return buf[0], err
+}
+
+// readBytes is a helper that reads exactly n bytes, all at once. It should only be used to read a
+// controlled number of bytes (e.g., a fixed number, or a bounded number).
+func (u *unmarshaller) readBytes(n uint) ([]byte, error) {
+	data := make([]byte, n)
+	if _, err := io.ReadFull(u.r, data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// readBytesChunked is like readBytes, but it doesn't try to allocate all n bytes immediately.
+func (u *unmarshaller) readBytesChunked(n uint) ([]byte, error) {
+	// TODO: chunk, and expand buffer as needed.
+	return u.readBytes(n)
 }
 
 // Unmarshal transformers --------------------------------------------------------------------------
