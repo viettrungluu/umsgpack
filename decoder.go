@@ -423,7 +423,7 @@ func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 
 // unmarshalNArray unmarshals an array with n entries.
 func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
-	rv := make([]any, 0, max(n, unmarshalMaxArrayAllocElements))
+	rv := make([]any, 0, min(n, unmarshalMaxArrayAllocElements))
 	for i := uint(0); i < n; i += 1 {
 		element, _, err := u.unmarshalObject()
 		if err != nil {
