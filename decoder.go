@@ -113,10 +113,14 @@ type unmarshaller struct {
 // TODO: We could make these options.
 const (
 	// unmarshalMaxArrayAllocElements is the maximum initial array allocation size in number of
-	// elements). For arrays larger than this, the slice will be grown as needed.
+	// elements) when unmarshalling an array. For arrays larger than this, the slice will be
+	// grown as needed.
 	//
 	// (This is less efficient, but prevents bad data from causing huge allocations.)
 	unmarshalMaxArrayAllocElements = 1000
+
+	// unmarshalReadChunkSize is the maximum single read size when unmarshalling.
+	unmarshalReadChunkSize = 4096
 )
 
 // unmarshalObject unmarshals an object. The next byte is expected to be the format.
@@ -482,8 +486,23 @@ func (u *unmarshaller) readBytes(n uint) ([]byte, error) {
 
 // readBytesChunked is like readBytes, but it doesn't try to allocate all n bytes immediately.
 func (u *unmarshaller) readBytesChunked(n uint) ([]byte, error) {
-	// TODO: chunk, and expand buffer as needed.
-	return u.readBytes(n)
+	// Fast path:
+	if n <= unmarshalReadChunkSize {
+		return u.readBytes(n)
+	}
+
+	var rv []byte
+	for n > 0 {
+		m := min(n, unmarshalReadChunkSize)
+		// TODO: grow rv and read straight into it.
+		if data, err := u.readBytes(m); err != nil {
+			return nil, err
+		} else {
+			rv = append(rv, data...)
+		}
+		n -= m
+	}
+	return rv, nil
 }
 
 // Unmarshal transformers --------------------------------------------------------------------------
