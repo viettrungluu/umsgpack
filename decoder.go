@@ -109,6 +109,16 @@ type unmarshaller struct {
 	r    io.Reader
 }
 
+// Internal configuration:
+// TODO: We could make these options.
+const (
+	// unmarshalMaxArrayAllocElements is the maximum initial array allocation size in number of
+	// elements). For arrays larger than this, the slice will be grown as needed.
+	//
+	// (This is less efficient, but prevents bad data from causing huge allocations.)
+	unmarshalMaxArrayAllocElements = 1000
+)
+
 // unmarshalObject unmarshals an object. The next byte is expected to be the format.
 //
 // Note: All internal unmarshal functions are like an UnmarshalExtensionTypeFn and return either an
@@ -389,8 +399,7 @@ func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 
 // unmarshalNArray unmarshals an array with n entries.
 func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
-	// TODO: don't allocate all n to begin with.
-	rv := make([]any, 0, n)
+	rv := make([]any, 0, max(n, unmarshalMaxArrayAllocElements))
 	for i := uint(0); i < n; i += 1 {
 		element, _, err := u.unmarshalObject()
 		if err != nil {
