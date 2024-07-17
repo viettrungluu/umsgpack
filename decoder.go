@@ -48,8 +48,10 @@ var DefaultUnmarshalOptions = &UnmarshalOptions{}
 //   - []byte for binary
 //   - []any for array
 //   - map[any]any for map
-//   - time.Time for timestamp (extension type -1)
-//   - other types per opts.ApplicationUnmarshalExtensions
+//   - time.Time for timestamp (extension type -1), unless disabled via options
+//   - UnresolvedExtensionType for other extension types
+//   - other types per opts.ApplicationUnmarshalTransformer (which typically maps
+//     UnresolvedExtensionType to other types)
 func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
 	if opts == nil {
 		opts = DefaultUnmarshalOptions

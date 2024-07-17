@@ -68,8 +68,6 @@ flexibility and capability, one may want to use a package like
 ## Current status
 
 * ![umsgpack build and test status](https://github.com/viettrungluu/umsgpack/actions/workflows/go.yml/badge.svg)
-* It is in alpha, but the design is rapidly crystalizing. Additional changes are expected to be
-  largely additive.
+* It is near stable: additional changes should be additive and backwards compatible.
 * Decoding (unmarshalling) is supported.
 * Encoding (marshalling) is supported.
-  * Ergonomic encoding of structs is not yet supported.
