@@ -13,7 +13,9 @@ import (
 // views into a buffer.
 //
 // All its methods should return io.EOF if no bytes are available and io.ErrUnexpectedEOF if some
-// but not all bytes are available. In either case, the data returned is not meaningful.
+// but not all bytes are available. In either case, the data returned is not meaningful, but the
+// read position should be advanced as much as possible (i.e., as much data is "consumed" as
+// possible).
 type ReadViewer interface {
 	// ReadByte reads exactly one byte, returning it by value.
 	ReadByte() (byte, error)
@@ -120,9 +122,11 @@ func (r *ReadViewerForBuffer) ReadView(n uint) ([]byte, error) {
 	}
 	len := uint(len(r.Buffer))
 	if r.pos >= len {
+		r.pos = len
 		return nil, io.EOF
 	}
 	if len-r.pos < n {
+		r.pos = len
 		return nil, io.ErrUnexpectedEOF
 	}
 
