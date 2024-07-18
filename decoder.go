@@ -117,17 +117,14 @@ type unmarshaller struct {
 }
 
 // Internal configuration:
-// TODO: We could make these options.
 const (
 	// unmarshalMaxArrayAllocElements is the maximum initial array allocation size in number of
 	// elements) when unmarshalling an array. For arrays larger than this, the slice will be
 	// grown as needed.
 	//
-	// (This is less efficient, but prevents bad data from causing huge allocations.)
+	// (This is less efficient for valid input, but prevents bad input from causing huge
+	// allocations.)
 	unmarshalMaxArrayAllocElements = 1000
-
-	// unmarshalReadChunkSize is the maximum single read size when unmarshalling.
-	unmarshalReadChunkSize = 4096
 )
 
 // unmarshalObject unmarshals an object. The next byte is expected to be the format.
