@@ -6,7 +6,6 @@
 package umsgpack
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -53,17 +52,23 @@ var DefaultUnmarshalOptions = &UnmarshalOptions{}
 //   - other types per opts.ApplicationUnmarshalTransformer (which typically maps
 //     UnresolvedExtensionType to other types)
 func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
+	return UnmarshalReadViewer(opts, ReadViewerForReader{Reader: r})
+}
+
+// UnmarshalBytes is like Unmarshal, except taking byte data instead of an io.Reader.
+func UnmarshalBytes(opts *UnmarshalOptions, data []byte) (any, error) {
+	return UnmarshalReadViewer(opts, &ReadViewerForBuffer{Buffer: data})
+}
+
+// UnmarshalReadViewer is like Unmarshal, except that it takes a ReadViewer insteada of an
+// io.Reader.
+func UnmarshalReadViewer(opts *UnmarshalOptions, r ReadViewer) (any, error) {
 	if opts == nil {
 		opts = DefaultUnmarshalOptions
 	}
 	u := &unmarshaller{opts: opts, r: r}
 	rv, _, err := u.unmarshalObject()
 	return rv, err
-}
-
-// UnmarshalBytes is like Unmarshal, except taking byte data instead of an io.Reader.
-func UnmarshalBytes(opts *UnmarshalOptions, data []byte) (any, error) {
-	return Unmarshal(opts, bytes.NewBuffer(data))
 }
 
 // UnmarshalOptions specifies options for Unmarshal.
@@ -108,7 +113,7 @@ type UnmarshalTransformerFn func(obj any, mapKeySupported bool) (any, bool, erro
 // An unmarshaller handles MessagePack unmarshalling for Unmarshal.
 type unmarshaller struct {
 	opts *UnmarshalOptions
-	r    io.Reader
+	r    ReadViewer
 }
 
 // Internal configuration:
@@ -153,7 +158,7 @@ func (u *unmarshaller) unmarshalObject() (obj any, mapKeySupported bool, err err
 // unmarshalStandardObject unmarshals an object to a standard (built-in) object (i.e., without
 // applying transformers).
 func (u *unmarshaller) unmarshalStandardObject() (any, bool, error) {
-	b, err := u.readByte()
+	b, err := u.r.ReadByte()
 	if err != nil {
 		return nil, false, err
 	}
@@ -297,7 +302,7 @@ func (u *unmarshaller) unmarshalStandardObject() (any, bool, error) {
 
 // unmarshalUint8 unmarshals a uint 8 (as a uint).
 func (u *unmarshaller) unmarshalUint8() (uint, bool, error) {
-	if b, err := u.readByte(); err != nil {
+	if b, err := u.r.ReadByte(); err != nil {
 		return 0, false, err
 	} else {
 		return uint(b), true, nil
@@ -306,7 +311,7 @@ func (u *unmarshaller) unmarshalUint8() (uint, bool, error) {
 
 // unmarshalUint16 unmarshals a uint 16 (as a uint).
 func (u *unmarshaller) unmarshalUint16() (uint, bool, error) {
-	if data, err := u.readBytes(2); err != nil {
+	if data, err := u.r.ReadView(2); err != nil {
 		return 0, false, err
 	} else {
 		return uint(binary.BigEndian.Uint16(data)), true, nil
@@ -315,7 +320,7 @@ func (u *unmarshaller) unmarshalUint16() (uint, bool, error) {
 
 // unmarshalUint32 unmarshals a uint 32 (as a uint).
 func (u *unmarshaller) unmarshalUint32() (uint, bool, error) {
-	if data, err := u.readBytes(4); err != nil {
+	if data, err := u.r.ReadView(4); err != nil {
 		return 0, false, err
 	} else {
 		return uint(binary.BigEndian.Uint32(data)), true, nil
@@ -324,7 +329,7 @@ func (u *unmarshaller) unmarshalUint32() (uint, bool, error) {
 
 // unmarshalUint64 unmarshals a uint 64 (as a uint).
 func (u *unmarshaller) unmarshalUint64() (uint, bool, error) {
-	if data, err := u.readBytes(8); err != nil {
+	if data, err := u.r.ReadView(8); err != nil {
 		return 0, false, err
 	} else {
 		return uint(binary.BigEndian.Uint64(data)), true, nil
@@ -333,7 +338,7 @@ func (u *unmarshaller) unmarshalUint64() (uint, bool, error) {
 
 // unmarshalInt8 unmarshals an int 8 (as an int).
 func (u *unmarshaller) unmarshalInt8() (int, bool, error) {
-	if b, err := u.readByte(); err != nil {
+	if b, err := u.r.ReadByte(); err != nil {
 		return 0, false, err
 	} else {
 		// Cast to an int8 first, so that casting to an int will sign-extend.
@@ -343,7 +348,7 @@ func (u *unmarshaller) unmarshalInt8() (int, bool, error) {
 
 // unmarshalInt16 unmarshals an int 16 (as an int).
 func (u *unmarshaller) unmarshalInt16() (int, bool, error) {
-	if data, err := u.readBytes(2); err != nil {
+	if data, err := u.r.ReadView(2); err != nil {
 		return 0, false, err
 	} else {
 		// Cast to an int16 first, so that casting to an int will sign-extend.
@@ -353,7 +358,7 @@ func (u *unmarshaller) unmarshalInt16() (int, bool, error) {
 
 // unmarshalInt32 unmarshals an int 32 (as an int).
 func (u *unmarshaller) unmarshalInt32() (int, bool, error) {
-	if data, err := u.readBytes(4); err != nil {
+	if data, err := u.r.ReadView(4); err != nil {
 		return 0, false, err
 	} else {
 		// Cast to an int32 first, so that casting to an int will sign-extend.
@@ -363,7 +368,7 @@ func (u *unmarshaller) unmarshalInt32() (int, bool, error) {
 
 // unmarshalInt64 unmarshals an int 64 (as an int).
 func (u *unmarshaller) unmarshalInt64() (int, bool, error) {
-	if data, err := u.readBytes(8); err != nil {
+	if data, err := u.r.ReadView(8); err != nil {
 		return 0, false, err
 	} else {
 		// Cast to an int64 first, so that casting to an int will sign-extend.
@@ -373,7 +378,7 @@ func (u *unmarshaller) unmarshalInt64() (int, bool, error) {
 
 // unmarshalFloat32 unmarshals a float 32 (as a float32).
 func (u *unmarshaller) unmarshalFloat32() (float32, bool, error) {
-	if data, err := u.readBytes(4); err != nil {
+	if data, err := u.r.ReadView(4); err != nil {
 		return 0, false, err
 	} else {
 		return math.Float32frombits(binary.BigEndian.Uint32(data)), true, nil
@@ -382,7 +387,7 @@ func (u *unmarshaller) unmarshalFloat32() (float32, bool, error) {
 
 // unmarshalFloat64 unmarshals a float 64 (as a float64).
 func (u *unmarshaller) unmarshalFloat64() (float64, bool, error) {
-	if data, err := u.readBytes(8); err != nil {
+	if data, err := u.r.ReadView(8); err != nil {
 		return 0, false, err
 	} else {
 		return math.Float64frombits(binary.BigEndian.Uint64(data)), true, nil
@@ -440,7 +445,8 @@ func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
 // Note that it does not validate that it is valid UTF-8.
 // TODO: Should it be an option?
 func (u *unmarshaller) unmarshalNString(n uint) (string, bool, error) {
-	if data, err := u.readBytesChunked(n); err != nil {
+	// The conversion to string makes a copy, so we can take a view.
+	if data, err := u.r.ReadView(n); err != nil {
 		return "", false, err
 	} else {
 		return string(data), true, nil
@@ -449,7 +455,8 @@ func (u *unmarshaller) unmarshalNString(n uint) (string, bool, error) {
 
 // unmarshalNBytes unmarshals a byte array of length n (bytes).
 func (u *unmarshaller) unmarshalNBytes(n uint) ([]byte, bool, error) {
-	if data, err := u.readBytesChunked(n); err != nil {
+	// We need a copy, since we return the slice.
+	if data, err := u.r.ReadCopy(n); err != nil {
 		return nil, false, err
 	} else {
 		return data, false, nil
@@ -461,50 +468,13 @@ func (u *unmarshaller) unmarshalNExt(n uint) (any, bool, error) {
 	if extensionType, _, err := u.unmarshalInt8(); err != nil {
 		return nil, false, err
 	} else {
-		if data, err := u.readBytesChunked(n); err != nil {
+		// We need a copy, since we return the slice (inside an UnresolvedExtensionType).
+		if data, err := u.r.ReadCopy(n); err != nil {
 			return nil, false, err
 		} else {
 			return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, false, nil
 		}
 	}
-}
-
-// readByte is a helper that reads exactly one byte.
-func (u *unmarshaller) readByte() (byte, error) {
-	buf := make([]byte, 1)
-	_, err := io.ReadFull(u.r, buf)
-	return buf[0], err
-}
-
-// readBytes is a helper that reads exactly n bytes, all at once. It should only be used to read a
-// controlled number of bytes (e.g., a fixed number, or a bounded number).
-func (u *unmarshaller) readBytes(n uint) ([]byte, error) {
-	data := make([]byte, n)
-	if _, err := io.ReadFull(u.r, data); err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-// readBytesChunked is like readBytes, but it doesn't try to allocate all n bytes immediately.
-func (u *unmarshaller) readBytesChunked(n uint) ([]byte, error) {
-	// Fast path:
-	if n <= unmarshalReadChunkSize {
-		return u.readBytes(n)
-	}
-
-	var rv []byte
-	for n > 0 {
-		m := min(n, unmarshalReadChunkSize)
-		// TODO: grow rv and read straight into it.
-		if data, err := u.readBytes(m); err != nil {
-			return nil, err
-		} else {
-			rv = append(rv, data...)
-		}
-		n -= m
-	}
-	return rv, nil
 }
 
 // Unmarshal transformers --------------------------------------------------------------------------
