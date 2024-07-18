@@ -68,7 +68,10 @@ func (r ReadViewerForReader) ReadCopy(n uint) ([]byte, error) {
 		m := min(n, readerChunkSize)
 		// TODO: grow data and read straight into it.
 		if chunk, err := r.readCopyAll(m); err != nil {
-			// TODO: bug: this may return io.EOF even when we've read some bytes.
+			if err == io.EOF && len(data) > 0 {
+				// Return ErrUnexpectedEOF instead of EOF if we've read any data.
+				return nil, io.ErrUnexpectedEOF
+			}
 			return nil, err
 		} else {
 			data = append(data, chunk...)
