@@ -33,9 +33,9 @@ type ReadViewer interface {
 
 // Internal configuration:
 const (
-	// readerChunkSize is the maximum single read size from an io.Reader (for a
+	// ReaderChunkSize is the maximum single read size from an io.Reader (for a
 	// ReadViewerForReader).
-	readerChunkSize = 4096
+	ReaderChunkSize = 4096
 )
 
 // A ReadViewerForReader is a ReadViewer that wraps an io.Reader. (Note that these are typically
@@ -61,13 +61,13 @@ func (r ReadViewerForReader) ReadView(n uint) ([]byte, error) {
 // ReadCopy implements ReadViewer.ReadCopy.
 func (r ReadViewerForReader) ReadCopy(n uint) ([]byte, error) {
 	// Fast path:
-	if n <= readerChunkSize {
+	if n <= ReaderChunkSize {
 		return r.readCopyAll(n)
 	}
 
 	var data []byte
 	for n > 0 {
-		m := min(n, readerChunkSize)
+		m := min(n, ReaderChunkSize)
 		// TODO: grow data and read straight into it.
 		if chunk, err := r.readCopyAll(m); err != nil {
 			if err == io.EOF && len(data) > 0 {
