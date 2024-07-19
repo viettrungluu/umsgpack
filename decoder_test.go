@@ -24,11 +24,18 @@ type unmarshalTestCase struct {
 	err     error
 }
 
-// testUnmarshal is a helper for testing Unmarshal with the given options for the given test cases.
+// testUnmarshal is a helper for testing Unmarshal/UnmarshalBytes with the given options for the
+// given test cases.
 func testUnmarshal(t *testing.T, opts *UnmarshalOptions, tCs []unmarshalTestCase) {
 	for _, tC := range tCs {
 		buf := bytes.NewBuffer(tC.encoded)
 		if actualDecoded, actualErr := Unmarshal(opts, buf); actualErr != tC.err {
+			t.Errorf("unexected error for encoded=%q (decoded=%#v, err=%v): actualErr=%v", tC.encoded, tC.decoded, tC.err, actualErr)
+		} else if tC.err == nil && !reflect.DeepEqual(actualDecoded, tC.decoded) {
+			t.Errorf("unexected result for encoded=%q (decoded=%#v): actualDecoded=%#v", tC.encoded, tC.decoded, actualDecoded)
+		}
+
+		if actualDecoded, actualErr := UnmarshalBytes(opts, tC.encoded); actualErr != tC.err {
 			t.Errorf("unexected error for encoded=%q (decoded=%#v, err=%v): actualErr=%v", tC.encoded, tC.decoded, tC.err, actualErr)
 		} else if tC.err == nil && !reflect.DeepEqual(actualDecoded, tC.decoded) {
 			t.Errorf("unexected result for encoded=%q (decoded=%#v): actualDecoded=%#v", tC.encoded, tC.decoded, actualDecoded)
@@ -468,8 +475,8 @@ var nonDefaultOptsUnmarshalTestCases = []unmarshalTestCase{
 	// TODO: test more key types for duplicate keys?
 }
 
-// TestUnmarshal_defaultOpts tests Unmarshal with the default options (all boolean options are
-// false).
+// TestUnmarshal_defaultOpts tests Unmarshal/UnmarshalBytes with the default options (all boolean
+// options are false).
 func TestUnmarshal_defaultOpts(t *testing.T) {
 	opts := &UnmarshalOptions{}
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
@@ -477,7 +484,7 @@ func TestUnmarshal_defaultOpts(t *testing.T) {
 	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
 }
 
-// TestUnmarshal_nonDefaultOpts tests Unmarshal with all boolean options set to true.
+// TestUnmarshal_nonDefaultOpts tests Unmarshal/UnmarshalBytes with all boolean options set to true.
 func TestUnmarshal_nonDefaultOpts(t *testing.T) {
 	opts := &UnmarshalOptions{
 		DisableDuplicateKeyError:       true,
@@ -587,27 +594,6 @@ func TestUnmarshal_timestampExtensionOverride(t *testing.T) {
 	testUnmarshal(t, opts, commonUnmarshalTestCases)
 	testUnmarshal(t, opts, defaultOptsUnmarshalTestCases)
 	testUnmarshal(t, opts, timestampExtensionOverrideUnmarshalTestCases)
-}
-
-func TestUnmarshalBytes(t *testing.T) {
-	opts := &UnmarshalOptions{
-		ApplicationUnmarshalTransformer: MakeExtensionTypeUnmarshalTransformer(
-			map[int8]UnmarshalExtensionTypeFn{
-				// 34: just unmarshals to a string.
-				34: func(data []byte) (any, bool, error) {
-					return string(data), true, nil
-				},
-			},
-		),
-	}
-
-	if decoded, err := UnmarshalBytes(opts, []byte{0xc7, 0x02, 0x22, 0x68, 0x69}); err != nil || decoded != "hi" {
-		t.Errorf("Unexpected result from UnmarshalBytes: %v, %v", decoded, err)
-	}
-
-	if decoded, err := UnmarshalBytes(opts, []byte{0xc1}); err != InvalidFormatError {
-		t.Errorf("Unexpected result from UnmarshalBytes: %v, %v", decoded, err)
-	}
 }
 
 // TODO: test MakeExtensionTypeUnmarshalTransformer.
