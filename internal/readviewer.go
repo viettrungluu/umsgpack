@@ -1,7 +1,7 @@
 // Copyright 2024 Viet-Trung Luu.
 // Use of this source code is governed by the license in the LICENSE file.
 
-package umsgpack
+package internal
 
 import (
 	"io"

@@ -11,6 +11,8 @@ import (
 	"io"
 	"math"
 	"time"
+
+	"github.com/viettrungluu/umsgpack/internal"
 )
 
 // Errors ------------------------------------------------------------------------------------------
@@ -52,17 +54,17 @@ var DefaultUnmarshalOptions = &UnmarshalOptions{}
 //   - other types per opts.ApplicationUnmarshalTransformer (which typically maps
 //     UnresolvedExtensionType to other types)
 func Unmarshal(opts *UnmarshalOptions, r io.Reader) (any, error) {
-	return UnmarshalReadViewer(opts, ReadViewerForReader{Reader: r})
+	return unmarshalReadViewer(opts, internal.ReadViewerForReader{Reader: r})
 }
 
 // UnmarshalBytes is like Unmarshal, except taking byte data instead of an io.Reader.
 func UnmarshalBytes(opts *UnmarshalOptions, data []byte) (any, error) {
-	return UnmarshalReadViewer(opts, &ReadViewerForBuffer{Buffer: data})
+	return unmarshalReadViewer(opts, &internal.ReadViewerForBuffer{Buffer: data})
 }
 
-// UnmarshalReadViewer is like Unmarshal, except that it takes a ReadViewer insteada of an
+// unmarshalReadViewer is like Unmarshal, except that it takes a ReadViewer insteada of an
 // io.Reader.
-func UnmarshalReadViewer(opts *UnmarshalOptions, r ReadViewer) (any, error) {
+func unmarshalReadViewer(opts *UnmarshalOptions, r internal.ReadViewer) (any, error) {
 	if opts == nil {
 		opts = DefaultUnmarshalOptions
 	}
@@ -113,7 +115,7 @@ type UnmarshalTransformerFn func(obj any, mapKeySupported bool) (any, bool, erro
 // An unmarshaller handles MessagePack unmarshalling for Unmarshal.
 type unmarshaller struct {
 	opts *UnmarshalOptions
-	r    ReadViewer
+	r    internal.ReadViewer
 }
 
 // Internal configuration:
