@@ -1,0 +1,7 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/viettrungluu/umsgpack
+BenchmarkMarshalToBytes-8   	27882037	      2622 ns/op	    2100 B/op	     118 allocs/op
+BenchmarkUnmarshalBytes-8   	26490210	      2711 ns/op	    2888 B/op	      88 allocs/op
+PASS
+ok  	github.com/viettrungluu/umsgpack	155.210s
