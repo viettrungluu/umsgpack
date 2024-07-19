@@ -11,5 +11,6 @@ packages like [mapstructure](https://github.com/go-viper/mapstructure).
 ## Links
 
 * [Status](status.md)
+* [Changelog](CHANGELOG.md)
 * [Documentation](https://pkg.go.dev/github.com/viettrungluu/umsgpack#section-documentation)
 * [Design](design.md)
