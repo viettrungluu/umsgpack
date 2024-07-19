@@ -69,7 +69,7 @@ func unmarshalReadViewer(opts *UnmarshalOptions, r internal.ReadViewer) (any, er
 		opts = DefaultUnmarshalOptions
 	}
 	u := &unmarshaller{opts: opts, r: r}
-	rv, _, err := u.unmarshalObject()
+	rv, _, err := u.unmarshalObject(true)
 	return rv, err
 }
 
@@ -129,13 +129,14 @@ const (
 	unmarshalMaxArrayAllocElements = 1000
 )
 
-// unmarshalObject unmarshals an object. The next byte is expected to be the format.
+// unmarshalObject unmarshals an object. The next byte is expected to be the format. topLevel should
+// be true only for the top-most call.
 //
 // Note: All internal unmarshal functions are like an UnmarshalExtensionTypeFn and return either an
 // error, or on success the object and a boolean indicating if the value is a valid map key (for a
 // map[any]any).
-func (u *unmarshaller) unmarshalObject() (obj any, mapKeySupported bool, err error) {
-	obj, mapKeySupported, err = u.unmarshalStandardObject()
+func (u *unmarshaller) unmarshalObject(topLevel bool) (obj any, mapKeySupported bool, err error) {
+	obj, mapKeySupported, err = u.unmarshalStandardObject(topLevel)
 	if err != nil {
 		return
 	}
@@ -156,10 +157,14 @@ func (u *unmarshaller) unmarshalObject() (obj any, mapKeySupported bool, err err
 
 // unmarshalStandardObject unmarshals an object to a standard (built-in) object (i.e., without
 // applying transformers).
-func (u *unmarshaller) unmarshalStandardObject() (any, bool, error) {
+func (u *unmarshaller) unmarshalStandardObject(topLevel bool) (any, bool, error) {
 	b, err := u.r.ReadByte()
 	if err != nil {
-		return nil, false, err
+		if topLevel {
+			return nil, false, err
+		} else {
+			return nil, false, mapEOF(err)
+		}
 	}
 
 	switch {
@@ -302,7 +307,7 @@ func (u *unmarshaller) unmarshalStandardObject() (any, bool, error) {
 // unmarshalUint8 unmarshals a uint 8 (as a uint).
 func (u *unmarshaller) unmarshalUint8() (uint, bool, error) {
 	if b, err := u.r.ReadByte(); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		return uint(b), true, nil
 	}
@@ -311,7 +316,7 @@ func (u *unmarshaller) unmarshalUint8() (uint, bool, error) {
 // unmarshalUint16 unmarshals a uint 16 (as a uint).
 func (u *unmarshaller) unmarshalUint16() (uint, bool, error) {
 	if data, err := u.r.ReadView(2); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		return uint(binary.BigEndian.Uint16(data)), true, nil
 	}
@@ -320,7 +325,7 @@ func (u *unmarshaller) unmarshalUint16() (uint, bool, error) {
 // unmarshalUint32 unmarshals a uint 32 (as a uint).
 func (u *unmarshaller) unmarshalUint32() (uint, bool, error) {
 	if data, err := u.r.ReadView(4); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		return uint(binary.BigEndian.Uint32(data)), true, nil
 	}
@@ -329,7 +334,7 @@ func (u *unmarshaller) unmarshalUint32() (uint, bool, error) {
 // unmarshalUint64 unmarshals a uint 64 (as a uint).
 func (u *unmarshaller) unmarshalUint64() (uint, bool, error) {
 	if data, err := u.r.ReadView(8); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		return uint(binary.BigEndian.Uint64(data)), true, nil
 	}
@@ -338,7 +343,7 @@ func (u *unmarshaller) unmarshalUint64() (uint, bool, error) {
 // unmarshalInt8 unmarshals an int 8 (as an int).
 func (u *unmarshaller) unmarshalInt8() (int, bool, error) {
 	if b, err := u.r.ReadByte(); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		// Cast to an int8 first, so that casting to an int will sign-extend.
 		return int(int8(b)), true, nil
@@ -348,7 +353,7 @@ func (u *unmarshaller) unmarshalInt8() (int, bool, error) {
 // unmarshalInt16 unmarshals an int 16 (as an int).
 func (u *unmarshaller) unmarshalInt16() (int, bool, error) {
 	if data, err := u.r.ReadView(2); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		// Cast to an int16 first, so that casting to an int will sign-extend.
 		return int(int16(binary.BigEndian.Uint16(data))), true, nil
@@ -358,7 +363,7 @@ func (u *unmarshaller) unmarshalInt16() (int, bool, error) {
 // unmarshalInt32 unmarshals an int 32 (as an int).
 func (u *unmarshaller) unmarshalInt32() (int, bool, error) {
 	if data, err := u.r.ReadView(4); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		// Cast to an int32 first, so that casting to an int will sign-extend.
 		return int(int32(binary.BigEndian.Uint32(data))), true, nil
@@ -368,7 +373,7 @@ func (u *unmarshaller) unmarshalInt32() (int, bool, error) {
 // unmarshalInt64 unmarshals an int 64 (as an int).
 func (u *unmarshaller) unmarshalInt64() (int, bool, error) {
 	if data, err := u.r.ReadView(8); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		// Cast to an int64 first, so that casting to an int will sign-extend.
 		return int(int64(binary.BigEndian.Uint64(data))), true, nil
@@ -378,7 +383,7 @@ func (u *unmarshaller) unmarshalInt64() (int, bool, error) {
 // unmarshalFloat32 unmarshals a float 32 (as a float32).
 func (u *unmarshaller) unmarshalFloat32() (float32, bool, error) {
 	if data, err := u.r.ReadView(4); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		return math.Float32frombits(binary.BigEndian.Uint32(data)), true, nil
 	}
@@ -387,7 +392,7 @@ func (u *unmarshaller) unmarshalFloat32() (float32, bool, error) {
 // unmarshalFloat64 unmarshals a float 64 (as a float64).
 func (u *unmarshaller) unmarshalFloat64() (float64, bool, error) {
 	if data, err := u.r.ReadView(8); err != nil {
-		return 0, false, err
+		return 0, false, mapEOF(err)
 	} else {
 		return math.Float64frombits(binary.BigEndian.Uint64(data)), true, nil
 	}
@@ -400,12 +405,12 @@ func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 		// Always try to unmarshal both the key and value even if we're going to return a
 		// higher-level error (duplicate key or unsupported key type) -- because if we
 		// ignore the error, then we need to "advance" our position properly.
-		key, mapKeySupported, err := u.unmarshalObject()
+		key, mapKeySupported, err := u.unmarshalObject(false)
 		if err != nil {
 			return nil, false, err
 		}
 
-		value, _, err := u.unmarshalObject()
+		value, _, err := u.unmarshalObject(false)
 		if err != nil {
 			return nil, false, err
 		}
@@ -431,7 +436,7 @@ func (u *unmarshaller) unmarshalNMap(n uint) (map[any]any, bool, error) {
 func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
 	rv := make([]any, 0, min(n, unmarshalMaxArrayAllocElements))
 	for i := uint(0); i < n; i += 1 {
-		element, _, err := u.unmarshalObject()
+		element, _, err := u.unmarshalObject(false)
 		if err != nil {
 			return nil, false, err
 		}
@@ -446,7 +451,7 @@ func (u *unmarshaller) unmarshalNArray(n uint) ([]any, bool, error) {
 func (u *unmarshaller) unmarshalNString(n uint) (string, bool, error) {
 	// The conversion to string makes a copy, so we can take a view.
 	if data, err := u.r.ReadView(n); err != nil {
-		return "", false, err
+		return "", false, mapEOF(err)
 	} else {
 		return string(data), true, nil
 	}
@@ -456,7 +461,7 @@ func (u *unmarshaller) unmarshalNString(n uint) (string, bool, error) {
 func (u *unmarshaller) unmarshalNBytes(n uint) ([]byte, bool, error) {
 	// We need a copy, since we return the slice.
 	if data, err := u.r.ReadCopy(n); err != nil {
-		return nil, false, err
+		return nil, false, mapEOF(err)
 	} else {
 		return data, false, nil
 	}
@@ -469,7 +474,7 @@ func (u *unmarshaller) unmarshalNExt(n uint) (any, bool, error) {
 	} else {
 		// We need a copy, since we return the slice (inside an UnresolvedExtensionType).
 		if data, err := u.r.ReadCopy(n); err != nil {
-			return nil, false, err
+			return nil, false, mapEOF(err)
 		} else {
 			return &UnresolvedExtensionType{ExtensionType: int8(extensionType), Data: data}, false, nil
 		}
@@ -546,5 +551,14 @@ func UnmarshalTimestampExtensionType(data []byte) (any, bool, error) {
 		return time.Unix(sec, nsec), true, nil
 	default:
 		return nil, false, InvalidTimestampError
+	}
+}
+
+// mapEOF maps io.EOF to io.ErrUnexpectedEOF.
+func mapEOF(err error) error {
+	if err == io.EOF {
+		return io.ErrUnexpectedEOF
+	} else {
+		return err
 	}
 }
