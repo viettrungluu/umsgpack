@@ -99,11 +99,14 @@ type MarshalTransformerFn func(obj any) (any, error)
 
 // Marshaller --------------------------------------------------------------------------------------
 
+// Size of marshaller.sbuf, the shared buffer used for writing (including bouncing small strings).
+const sbufSize = 64
+
 // A marshaller handles MessagePack marshalling for Marshal.
 type marshaller struct {
 	opts *MarshalOptions
 	w    io.Writer
-	sbuf [10]byte
+	sbuf [sbufSize]byte
 }
 
 // marshalObject marshals an object.
@@ -265,7 +268,7 @@ func (m *marshaller) marshalString(s string) error {
 	default:
 		return ObjectTooBigForMarshallingError
 	}
-	return m.write([]byte(s)...)
+	return m.writeString(s)
 }
 
 // marshalBytes marshals a []byte (in a minimal way).
@@ -287,7 +290,7 @@ func (m *marshaller) marshalBytes(b []byte) error {
 	default:
 		return ObjectTooBigForMarshallingError
 	}
-	return m.write(b...)
+	return m.writeBytes(b)
 }
 
 // marshalArray marshals a []any (in a minimal way).
@@ -451,7 +454,7 @@ func (m *marshaller) marshalExtensionType(extType int, extData []byte) error {
 	if err := m.writeByte(byte(extType)); err != nil {
 		return err
 	}
-	return m.write(extData...)
+	return m.writeBytes(extData)
 }
 
 // writeByte is a helper that writes 1 byte.
@@ -504,10 +507,22 @@ func (m *marshaller) write9Bytes(b0, b1, b2, b3, b4, b5, b6, b7, b8 byte) error 
 	return err
 }
 
-// write is a helper for calling the io.Writer's Write.
-func (m *marshaller) write(data ...byte) error {
+// writeBytes is a helper that writes a byte slice.
+func (m *marshaller) writeBytes(data []byte) error {
 	_, err := m.w.Write(data)
 	return err
+}
+
+// writeString is a helper that writes a string.
+func (m *marshaller) writeString(s string) error {
+	// Small string optimization, which copies to the shared bounce buffer.
+	if len(s) < sbufSize {
+		data := m.sbuf[0:len(s)]
+		copy(data, s)
+		return m.writeBytes(data)
+	} else {
+		return m.writeBytes([]byte(s))
+	}
 }
 
 // Marshal transformers ----------------------------------------------------------------------------
