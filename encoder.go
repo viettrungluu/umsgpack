@@ -103,6 +103,7 @@ type MarshalTransformerFn func(obj any) (any, error)
 type marshaller struct {
 	opts *MarshalOptions
 	w    io.Writer
+	sbuf [10]byte
 }
 
 // marshalObject marshals an object.
@@ -182,15 +183,15 @@ func (m *marshaller) marshalObject(obj any) error {
 
 // marshalNil marshals a nil.
 func (m *marshaller) marshalNil() error {
-	return m.write(0xc0) // nil: 11000000: 0xc0
+	return m.writeByte(0xc0) // nil: 11000000: 0xc0
 }
 
 // marshalBool marshals a bool.
 func (m *marshaller) marshalBool(b bool) error {
 	if b { // true: 11000011: 0xc3
-		return m.write(0xc3)
+		return m.writeByte(0xc3)
 	} else { // false: 11000010: 0xc2
-		return m.write(0xc2)
+		return m.writeByte(0xc2)
 	}
 }
 
@@ -198,17 +199,17 @@ func (m *marshaller) marshalBool(b bool) error {
 func (m *marshaller) marshalInt64(i int64) error {
 	switch {
 	case i >= 0 && i <= 0x7f: // positive fixint: 0xxxxxxx: 0x00 - 0x7f
-		return m.write(byte(i & 0xff))
+		return m.writeByte(byte(i & 0xff))
 	case i >= -(0x100-0xe0) && i < 0: // negative fixint: 111xxxxx: 0xe0 - 0xff
-		return m.write(byte(i & 0xff))
+		return m.writeByte(byte(i & 0xff))
 	case i >= math.MinInt8 && i <= math.MaxInt8: // int 8: 11010000: 0xd0
-		return m.write(0xd0, byte(i&0xff))
+		return m.write2Bytes(0xd0, byte(i&0xff))
 	case i >= math.MinInt16 && i <= math.MaxInt16: // int 16: 11010001: 0xd1
-		return m.write(0xd1, byte((i>>8)&0xff), byte(i&0xff))
+		return m.write3Bytes(0xd1, byte((i>>8)&0xff), byte(i&0xff))
 	case i >= math.MinInt32 && i <= math.MaxInt32: // int 32: 11010010: 0xd2
-		return m.write(0xd2, byte((i>>24)&0xff), byte((i>>16)&0xff), byte((i>>8)&0xff), byte(i&0xff))
+		return m.write5Bytes(0xd2, byte((i>>24)&0xff), byte((i>>16)&0xff), byte((i>>8)&0xff), byte(i&0xff))
 	default: // int 64: 11010011: 0xd3
-		return m.write(0xd3, byte((i>>56)&0xff), byte((i>>48)&0xff), byte((i>>40)&0xff), byte((i>>32)&0xff), byte((i>>24)&0xff), byte((i>>16)&0xff), byte((i>>8)&0xff), byte(i&0xff))
+		return m.write9Bytes(0xd3, byte((i>>56)&0xff), byte((i>>48)&0xff), byte((i>>40)&0xff), byte((i>>32)&0xff), byte((i>>24)&0xff), byte((i>>16)&0xff), byte((i>>8)&0xff), byte(i&0xff))
 	}
 }
 
@@ -217,13 +218,13 @@ func (m *marshaller) marshalInt64(i int64) error {
 func (m *marshaller) marshalUint64(u uint64) error {
 	switch {
 	case u <= math.MaxUint8: // uint 8: 11001100: 0xcc
-		return m.write(0xcc, byte(u&0xff))
+		return m.write2Bytes(0xcc, byte(u&0xff))
 	case u <= math.MaxUint16: // uint 16: 11001101: 0xcd
-		return m.write(0xcd, byte((u>>8)&0xff), byte(u&0xff))
+		return m.write3Bytes(0xcd, byte((u>>8)&0xff), byte(u&0xff))
 	case u <= math.MaxUint32: // uint 32: 11001110: 0xce
-		return m.write(0xce, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
+		return m.write5Bytes(0xce, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
 	default: // uint 64: 11001111: 0xcf
-		return m.write(0xcf, byte((u>>56)&0xff), byte((u>>48)&0xff), byte((u>>40)&0xff), byte((u>>32)&0xff), byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
+		return m.write9Bytes(0xcf, byte((u>>56)&0xff), byte((u>>48)&0xff), byte((u>>40)&0xff), byte((u>>32)&0xff), byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
 	}
 }
 
@@ -231,14 +232,14 @@ func (m *marshaller) marshalUint64(u uint64) error {
 func (m *marshaller) marshalFloat32(f float32) error {
 	u := math.Float32bits(f)
 	// float 32: 11001010: 0xca
-	return m.write(0xca, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
+	return m.write5Bytes(0xca, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
 }
 
 // marshalFloat64 marshals a float64.
 func (m *marshaller) marshalFloat64(f float64) error {
 	u := math.Float64bits(f)
 	// float 64: 11001011: 0xcb
-	return m.write(0xcb, byte((u>>56)&0xff), byte((u>>48)&0xff), byte((u>>40)&0xff), byte((u>>32)&0xff), byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
+	return m.write9Bytes(0xcb, byte((u>>56)&0xff), byte((u>>48)&0xff), byte((u>>40)&0xff), byte((u>>32)&0xff), byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff))
 }
 
 // marshalString marshals a string (in a minimal way).
@@ -246,19 +247,19 @@ func (m *marshaller) marshalString(s string) error {
 	u := len(s)
 	switch {
 	case u <= (0xbf - 0xa0): // fixstr: 101xxxxx: 0xa0 - 0xbf
-		if err := m.write(byte(0xa0 + u)); err != nil {
+		if err := m.writeByte(byte(0xa0 + u)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint8: // str 8: 11011001: 0xd9
-		if err := m.write(0xd9, byte(u&0xff)); err != nil {
+		if err := m.write2Bytes(0xd9, byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint16: // str 16: 11011010: 0xda
-		if err := m.write(0xda, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write3Bytes(0xda, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint32: // str 32: 11011011: 0xdb
-		if err := m.write(0xdb, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write5Bytes(0xdb, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	default:
@@ -272,15 +273,15 @@ func (m *marshaller) marshalBytes(b []byte) error {
 	u := len(b)
 	switch {
 	case u <= math.MaxUint8: // bin 8: 11000100: 0xc4
-		if err := m.write(0xc4, byte(u&0xff)); err != nil {
+		if err := m.write2Bytes(0xc4, byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint16: // bin 16: 11000101: 0xc5
-		if err := m.write(0xc5, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write3Bytes(0xc5, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint32: // bin 32: 11000110: 0xc6
-		if err := m.write(0xc6, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write5Bytes(0xc6, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	default:
@@ -321,15 +322,15 @@ func (m *marshaller) marshalGenericArrayOrSlice(obj any) error {
 func (m *marshaller) writeArrayPrefix(u int) error {
 	switch {
 	case u <= (0x9f - 0x90): // fixarray: 1001xxxx: 0x90 - 0x9f
-		if err := m.write(byte(0x90 + u)); err != nil {
+		if err := m.writeByte(byte(0x90 + u)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint16: // array 16: 11011100: 0xdc
-		if err := m.write(0xdc, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write3Bytes(0xdc, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint32: // array 32: 11011101: 0xdd
-		if err := m.write(0xdd, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write5Bytes(0xdd, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	default:
@@ -391,15 +392,15 @@ func (m *marshaller) marshalGenericMap(obj any) error {
 func (m *marshaller) writeMapPrefix(u int) error {
 	switch {
 	case u <= (0x8f - 0x80): // fixmap: 1000xxxx: 0x80 - 0x8f
-		if err := m.write(byte(0x80 + u)); err != nil {
+		if err := m.writeByte(byte(0x80 + u)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint16: // map 16: 11011110: 0xde
-		if err := m.write(0xde, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write3Bytes(0xde, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint32: // map 32: 11011111: 0xdf
-		if err := m.write(0xdf, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write5Bytes(0xdf, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	default:
@@ -413,44 +414,94 @@ func (m *marshaller) marshalExtensionType(extType int, extData []byte) error {
 	u := len(extData)
 	switch {
 	case u == 1: // fixext 1: 11010100: 0xd4
-		if err := m.write(0xd4); err != nil {
+		if err := m.writeByte(0xd4); err != nil {
 			return err
 		}
 	case u == 2: // fixext 2: 11010101: 0xd5
-		if err := m.write(0xd5); err != nil {
+		if err := m.writeByte(0xd5); err != nil {
 			return err
 		}
 	case u == 4: // fixext 4: 11010110: 0xd6
-		if err := m.write(0xd6); err != nil {
+		if err := m.writeByte(0xd6); err != nil {
 			return err
 		}
 	case u == 8: // fixext 8: 11010111: 0xd7
-		if err := m.write(0xd7); err != nil {
+		if err := m.writeByte(0xd7); err != nil {
 			return err
 		}
 	case u == 16: // fixext 16: 11011000: 0xd8
-		if err := m.write(0xd8); err != nil {
+		if err := m.writeByte(0xd8); err != nil {
 			return err
 		}
 	case u <= math.MaxUint8: // ext 8: 11000111: 0xc7
-		if err := m.write(0xc7, byte(u&0xff)); err != nil {
+		if err := m.write2Bytes(0xc7, byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint16: // ext 16: 11001000: 0xc8
-		if err := m.write(0xc8, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write3Bytes(0xc8, byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	case u <= math.MaxUint32: // ext 32: 11001001: 0xc9
-		if err := m.write(0xc9, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
+		if err := m.write5Bytes(0xc9, byte((u>>24)&0xff), byte((u>>16)&0xff), byte((u>>8)&0xff), byte(u&0xff)); err != nil {
 			return err
 		}
 	default:
 		return ObjectTooBigForMarshallingError
 	}
-	if err := m.write(byte(extType)); err != nil {
+	if err := m.writeByte(byte(extType)); err != nil {
 		return err
 	}
 	return m.write(extData...)
+}
+
+// writeByte is a helper that writes 1 byte.
+func (m *marshaller) writeByte(b byte) error {
+	m.sbuf[0] = b
+	_, err := m.w.Write(m.sbuf[0:1])
+	return err
+}
+
+// write2Bytes is a helper that writes 2 bytes.
+func (m *marshaller) write2Bytes(b0, b1 byte) error {
+	m.sbuf[0] = b0
+	m.sbuf[1] = b1
+	_, err := m.w.Write(m.sbuf[0:2])
+	return err
+}
+
+// write3Bytes is a helper that writes 3 bytes.
+func (m *marshaller) write3Bytes(b0, b1, b2 byte) error {
+	m.sbuf[0] = b0
+	m.sbuf[1] = b1
+	m.sbuf[2] = b2
+	_, err := m.w.Write(m.sbuf[0:3])
+	return err
+}
+
+// write5Bytes is a helper that writes 5 bytes.
+func (m *marshaller) write5Bytes(b0, b1, b2, b3, b4 byte) error {
+	m.sbuf[0] = b0
+	m.sbuf[1] = b1
+	m.sbuf[2] = b2
+	m.sbuf[3] = b3
+	m.sbuf[4] = b4
+	_, err := m.w.Write(m.sbuf[0:5])
+	return err
+}
+
+// write9Bytes is a helper that writes 9 bytes.
+func (m *marshaller) write9Bytes(b0, b1, b2, b3, b4, b5, b6, b7, b8 byte) error {
+	m.sbuf[0] = b0
+	m.sbuf[1] = b1
+	m.sbuf[2] = b2
+	m.sbuf[3] = b3
+	m.sbuf[4] = b4
+	m.sbuf[5] = b5
+	m.sbuf[6] = b6
+	m.sbuf[7] = b7
+	m.sbuf[8] = b8
+	_, err := m.w.Write(m.sbuf[0:9])
+	return err
 }
 
 // write is a helper for calling the io.Writer's Write.
